@@ -10,8 +10,9 @@ type AllowedStatus = (typeof allowedStatuses)[number];
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const params = await context.params;
   const admin = await getAdminUser();
   if (!admin) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });

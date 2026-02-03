@@ -27,16 +27,30 @@ export async function GET() {
   }
 
   const { rows: profileRows } = await pool.query(
-    "SELECT address, number, city, state, zip, category, phone, whatsapp, bio FROM provider_profiles WHERE user_id = $1",
+    `SELECT 
+      address, number, city, state, zip, category, phone, whatsapp, bio,
+      cpf, profile_url, service_type, has_cnpj, issues_invoice, attends_other_cities, service_radius, experience, availability
+     FROM provider_profiles WHERE user_id = $1`,
     [payload.sub]
   );
+
+  const p = profileRows[0];
+  const profile = p ? {
+      ...p,
+      profileUrl: p.profile_url,
+      serviceType: p.service_type,
+      hasCnpj: p.has_cnpj,
+      issuesInvoice: p.issues_invoice,
+      attendsOtherCities: p.attends_other_cities,
+      serviceRadius: p.service_radius
+  } : null;
 
   return NextResponse.json({
     id: payload.sub,
     name: payload.name,
     email: payload.email,
     role: payload.role,
-    profile: profileRows[0] || null
+    profile: profile
   });
 }
 
@@ -47,18 +61,10 @@ export async function PUT(request: Request) {
   }
 
   const body = await request.json();
-  const { name, address, number, city, state, zip, category, phone, whatsapp, bio } = body as {
-    name?: string;
-    address?: string;
-    number?: string;
-    city?: string;
-    state?: string;
-    zip?: string;
-    category?: string;
-    phone?: string;
-    whatsapp?: string;
-    bio?: string;
-  };
+  const { 
+    name, address, number, city, state, zip, category, phone, whatsapp, bio,
+    cpf, profileUrl, serviceType, hasCnpj, issuesInvoice, attendsOtherCities, serviceRadius, experience, availability
+  } = body as any;
 
   if (!name) {
     return NextResponse.json({ error: "Nome é obrigatório." }, { status: 400 });
@@ -67,21 +73,21 @@ export async function PUT(request: Request) {
   await pool.query("UPDATE users SET name = $1 WHERE id = $2", [name, payload.sub]);
 
   await pool.query(
-    `INSERT INTO provider_profiles (user_id, address, number, city, state, zip, category, phone, whatsapp, bio)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `INSERT INTO provider_profiles 
+     (user_id, address, number, city, state, zip, category, phone, whatsapp, bio, cpf, profile_url, service_type, has_cnpj, issues_invoice, attends_other_cities, service_radius, experience, availability)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
      ON CONFLICT (user_id)
-     DO UPDATE SET address = $2, number = $3, city = $4, state = $5, zip = $6, category = $7, phone = $8, whatsapp = $9, bio = $10, updated_at = NOW()`,
+     DO UPDATE SET 
+       address = EXCLUDED.address, number = EXCLUDED.number, city = EXCLUDED.city, state = EXCLUDED.state, zip = EXCLUDED.zip, 
+       category = EXCLUDED.category, phone = EXCLUDED.phone, whatsapp = EXCLUDED.whatsapp, bio = EXCLUDED.bio,
+       cpf = EXCLUDED.cpf, profile_url = EXCLUDED.profile_url, service_type = EXCLUDED.service_type, 
+       has_cnpj = EXCLUDED.has_cnpj, issues_invoice = EXCLUDED.issues_invoice, attends_other_cities = EXCLUDED.attends_other_cities,
+       service_radius = EXCLUDED.service_radius, experience = EXCLUDED.experience, availability = EXCLUDED.availability,
+       updated_at = NOW()`,
     [
       payload.sub,
-      address ?? "",
-      number ?? "",
-      city ?? "",
-      state ?? "",
-      zip ?? "",
-      category ?? "",
-      phone ?? "",
-      whatsapp ?? "",
-      bio ?? ""
+      address ?? "", number ?? "", city ?? "", state ?? "", zip ?? "", category ?? "", phone ?? "", whatsapp ?? "", bio ?? "",
+      cpf ?? "", profileUrl ?? "", serviceType ?? "", hasCnpj ?? false, issuesInvoice ?? false, attendsOtherCities ?? false, serviceRadius ?? 0, experience ?? "", availability ?? []
     ]
   );
 

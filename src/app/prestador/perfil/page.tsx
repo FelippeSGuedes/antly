@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from 'next/navigation';
+import { Shield, User as UserIcon, Briefcase, Star, AlertCircle, CheckCircle, Camera, Upload } from "lucide-react";
 
 type User = {
   id: string;
@@ -20,6 +22,15 @@ type Profile = {
   phone: string;
   whatsapp: string;
   bio: string;
+  cpf: string;
+  profileUrl: string;
+  serviceType: string;
+  hasCnpj: boolean;
+  issuesInvoice: boolean;
+  attendsOtherCities: boolean;
+  serviceRadius: number;
+  experience: string;
+  availability: string[];
 };
 
 type FormState = Profile & {
@@ -36,7 +47,39 @@ const emptyForm: FormState = {
   category: "",
   phone: "",
   whatsapp: "",
-  bio: ""
+  bio: "",
+  cpf: "",
+  profileUrl: "",
+  serviceType: "",
+  hasCnpj: false,
+  issuesInvoice: false,
+  attendsOtherCities: false,
+  serviceRadius: 15,
+  experience: "",
+  availability: [],
+};
+
+// CPF Validation Helper
+const isValidCPF = (cpf: string) => {
+  if (typeof cpf !== "string") return false;
+  cpf = cpf.replace(/[^\d]+/g, "");
+  if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) return false;
+  
+  const validateDigit = (t: number) => {
+    let d = 0;
+    let c = 0;
+    for (t; t >= 2; t--) {
+        d += parseInt(cpf.substring(c, c + 1)) * t;
+        c++;
+    }
+    d = (d * 10) % 11;
+    if (d === 10 || d === 11) d = 0;
+    return d;
+  }
+
+  if (validateDigit(10) !== parseInt(cpf.substring(9, 10))) return false;
+  if (validateDigit(11) !== parseInt(cpf.substring(10, 11))) return false;
+  return true;
 };
 
 export default function PrestadorPerfilPage() {
@@ -46,6 +89,33 @@ export default function PrestadorPerfilPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [cepStatus, setCepStatus] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Array<{ id: number; name: string; group_name: string }>>([]);
+  const router = useRouter();
+
+  // Score Calculation
+  const reliabilityScore = useMemo(() => {
+    let score = 0;
+    // Security (45%)
+    if (isValidCPF(form.cpf)) score += 25;
+    if (form.phone && form.phone.length >= 10) score += 15; // Simulated verified
+    if (user?.email) score += 5; // Simulated verified
+
+    // Visual (10%)
+    if (previewUrl || form.profileUrl) score += 10;
+
+    // Professional (30%)
+    if (form.category) score += 5;
+    if (form.city && form.serviceRadius > 0) score += 10;
+    if (form.serviceType) score += 5;
+    if (form.experience) score += 10;
+
+    // Quality (10%)
+    if (form.bio && form.bio.length > 50) score += 5;
+    if (form.availability && form.availability.length > 0) score += 5;
+
+    return Math.min(100, score);
+  }, [form, user, previewUrl]);
 
   const load = async () => {
     setLoading(true);
@@ -77,8 +147,29 @@ export default function PrestadorPerfilPage() {
           category: profile.category ?? "",
           phone: profile.phone ?? "",
           whatsapp: profile.whatsapp ?? "",
-          bio: profile.bio ?? ""
+          bio: profile.bio ?? "",
+          cpf: profile.cpf ?? "",
+          profileUrl: profile.profileUrl ?? "",
+          serviceType: profile.serviceType ?? "",
+          hasCnpj: profile.hasCnpj ?? false,
+          issuesInvoice: profile.issuesInvoice ?? false,
+          attendsOtherCities: profile.attendsOtherCities ?? false,
+          serviceRadius: profile.serviceRadius ?? 15,
+          experience: profile.experience ?? "",
+          availability: profile.availability ?? [],
         });
+        if (profile.profileUrl) setPreviewUrl(profile.profileUrl);
+      }
+
+      // carregar categorias disponíveis (não bloqueante)
+      try {
+        const catRes = await fetch('/api/categories');
+        if (catRes.ok) {
+          const catData = await catRes.json();
+          setCategories(catData || []);
+        }
+      } catch (e) {
+        // silêncio: falha ao carregar categorias não impede edição do perfil
       }
     } catch {
       setError("Não foi possível carregar o perfil.");
@@ -90,6 +181,33 @@ export default function PrestadorPerfilPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError("A imagem deve ter no máximo 5MB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+        setForm(prev => ({ ...prev, profileUrl: reader.result as string })); // In real app, upload first
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAvailabilityChange = (option: string) => {
+      setForm(prev => {
+           const current = prev.availability || [];
+           if (current.includes(option)) {
+               return { ...prev, availability: current.filter(item => item !== option) };
+           } else {
+               return { ...prev, availability: [...current, option] };
+           }
+      })
+  }
 
   const fetchCep = async (value: string) => {
     const zip = value.replace(/\D/g, "");
@@ -129,6 +247,11 @@ export default function PrestadorPerfilPage() {
     setError(null);
     setStatus(null);
 
+    if (!isValidCPF(form.cpf)) {
+        setError("CPF inválido. Por favor, verifique.");
+        return;
+    }
+
     const response = await fetch("/api/provider/profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -142,6 +265,12 @@ export default function PrestadorPerfilPage() {
     }
 
     setStatus("Perfil atualizado com sucesso.");
+    // redireciona de volta para o dashboard do prestador
+    try {
+      router.push('/prestador');
+    } catch (e) {
+      // se falhar, apenas manter a mensagem de status
+    }
   };
 
   if (loading) {
@@ -182,286 +311,326 @@ export default function PrestadorPerfilPage() {
     );
   }
 
+  const getScoreColor = (score: number) => {
+      if (score < 50) return "bg-red-500";
+      if (score < 70) return "bg-yellow-500";
+      return "bg-green-500";
+  };
+
+  // agrupa categorias por group_name para renderização do select
+  const groupedCategories = categories.reduce((acc: Record<string, Array<{id:number;name:string}>>, cur) => {
+    const g = cur.group_name || 'Outras';
+    if (!acc[g]) acc[g] = [];
+    acc[g].push({ id: cur.id, name: cur.name });
+    return acc;
+  }, {} as Record<string, Array<{id:number;name:string}>>);
+
+  // gerar nodes para o select (evita lógica complexa dentro do JSX)
+  const categoryOptions = Object.entries(groupedCategories).map(([group, items]) => (
+    <optgroup key={group} label={group}>
+      {items.map((it) => (
+        <option key={it.id} value={it.name}>{it.name}</option>
+      ))}
+    </optgroup>
+  ));
+
   return (
-    <div className="min-h-screen bg-[#FDFBF7] px-6 py-10 text-slate-800">
-      <div className="mx-auto flex max-w-5xl flex-col gap-8">
-        <header className="rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
-          <p className="text-sm font-semibold uppercase tracking-widest text-orange-500">
-            Perfil do prestador
-          </p>
-          <h1 className="mt-2 text-3xl font-bold">Olá, {user.name}</h1>
-          <p className="mt-1 text-sm text-slate-500">{user.email}</p>
-        </header>
+    <div className="min-h-screen bg-[#FDFBF7] px-4 py-8 text-slate-800">
+      <div className="mx-auto flex max-w-6xl flex-col lg:flex-row gap-8">
+        
+        {/* Sidebar Status */}
+        <div className="w-full lg:w-80 space-y-6 shrink-0">
+             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-center">
+                 <div className="relative inline-block">
+                    <div className="w-24 h-24 rounded-full bg-slate-100 mx-auto flex items-center justify-center overflow-hidden border-4 border-white shadow-md">
+                        {previewUrl ? (
+                            <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                            <UserIcon size={40} className="text-slate-300" />
+                        )}
+                    </div>
+                    <label className="absolute bottom-0 right-0 bg-orange-600 text-white p-2 rounded-full cursor-pointer hover:bg-orange-700 transition shadow-sm">
+                        <Camera size={14} />
+                        <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                    </label>
+                 </div>
+                 <h2 className="mt-4 font-bold text-lg">{form.name}</h2>
+                 <p className="text-sm text-slate-500 truncate">{user.email}</p>
+                 
+                 <div className="mt-6 text-left">
+                     <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Confiabilidade</span>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded text-white ${getScoreColor(reliabilityScore)}`}>{reliabilityScore}%</span>
+                     </div>
+                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                         <div className={`h-full transition-all duration-500 ${getScoreColor(reliabilityScore)}`} style={{ width: `${reliabilityScore}%` }}></div>
+                     </div>
+                     <p className="mt-2 text-[10px] text-slate-400 text-center">
+                        {reliabilityScore < 70 ? "Complete seu perfil para ganhar destaque!" : "Seu perfil passa alta confiança!"}
+                     </p>
+                 </div>
+             </div>
 
-        {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-            {error}
-          </div>
-        )}
+             <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><CheckCircle size={18} className="text-green-500"/> Checklist de Qualidade</h3>
+                <ul className="space-y-3 text-sm">
+                    <li className={`flex items-center gap-2 ${isValidCPF(form.cpf) ? "text-green-600 font-medium" : "text-slate-400"}`}>
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isValidCPF(form.cpf) ? "border-green-500 bg-green-50" : "border-slate-300"}`}>
+                           {isValidCPF(form.cpf) && <div className="w-2 h-2 rounded-full bg-green-500"></div>}
+                        </div>
+                        CPF Validado (+25%)
+                    </li>
+                    <li className={`flex items-center gap-2 ${previewUrl ? "text-green-600 font-medium" : "text-slate-400"}`}>
+                         <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${previewUrl ? "border-green-500 bg-green-50" : "border-slate-300"}`}>
+                           {previewUrl && <div className="w-2 h-2 rounded-full bg-green-500"></div>}
+                        </div>
+                        Foto de Perfil (+10%)
+                    </li>
+                    <li className={`flex items-center gap-2 ${form.experience ? "text-green-600 font-medium" : "text-slate-400"}`}>
+                         <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${form.experience ? "border-green-500 bg-green-50" : "border-slate-300"}`}>
+                           {form.experience && <div className="w-2 h-2 rounded-full bg-green-500"></div>}
+                        </div>
+                        Experiência Informada (+10%)
+                    </li>
+                     <li className={`flex items-center gap-2 ${form.city ? "text-green-600 font-medium" : "text-slate-400"}`}>
+                         <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${form.city ? "border-green-500 bg-green-50" : "border-slate-300"}`}>
+                           {form.city && <div className="w-2 h-2 rounded-full bg-green-500"></div>}
+                        </div>
+                        Área de Atuação (+10%)
+                    </li>
+                </ul>
+             </div>
+        </div>
 
+        {/* Main Form */}
+        <div className="flex-1">
         <form
           onSubmit={save}
-          className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm"
+          className="rounded-3xl border border-slate-100 bg-white p-8 shadow-sm space-y-8"
         >
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-                Informações pessoais
-              </h2>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Nome
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    value={form.name}
-                    onChange={(event) => setForm({ ...form, name: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
+          {/* Header */}
+          <div>
+             <h1 className="text-2xl font-bold text-slate-800">Editar Perfil</h1>
+             <p className="text-slate-500 text-sm">Mantenha suas informações atualizadas para atrair mais clientes.</p>
+          </div>
 
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    CEP
-                  </label>
-                  <input
-                    type="text"
-                    value={form.zip}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setForm({ ...form, zip: value });
-                      if (value.replace(/\D/g, "").length === 8) {
-                        fetchCep(value);
-                      }
-                    }}
-                    onBlur={() => fetchCep(form.zip)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500"
-                    placeholder="00000-000"
-                  />
-                  {cepStatus && (
-                    <p className="mt-2 text-xs font-medium text-slate-500">{cepStatus}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Endereço
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    value={form.address}
-                    onChange={(event) => setForm({ ...form, address: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Número
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    value={form.number}
-                    onChange={(event) => setForm({ ...form, number: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500"
-                    placeholder="Ex: 123"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Cidade
-                  </label>
-                  <input
-                    type="text"
-                    value={form.city}
-                    onChange={(event) => setForm({ ...form, city: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Estado
-                  </label>
-                  <input
-                    type="text"
-                    value={form.state}
-                    onChange={(event) => setForm({ ...form, state: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Telefone
-                  </label>
-                  <input
-                    required
-                    type="tel"
-                    value={form.phone}
-                    onChange={(event) => setForm({ ...form, phone: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500"
-                    placeholder="(11) 99999-9999"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    WhatsApp
-                  </label>
-                  <input
-                    required
-                    type="tel"
-                    value={form.whatsapp}
-                    onChange={(event) => setForm({ ...form, whatsapp: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500"
-                    placeholder="(11) 98888-8888"
-                  />
-                </div>
-              </div>
+          {error && (
+            <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 font-medium">
+               <AlertCircle size={18}/> {error}
             </div>
+          )}
 
-            <div>
-              <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-                Atividade
-              </h2>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Categoria
-                  </label>
-                  <select
-                    required
-                    value={form.category}
-                    onChange={(event) => setForm({ ...form, category: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    <option value="">Selecione</option>
-                    <optgroup label="Construção, Reforma e Residencial">
-                      <option>Construção</option>
-                      <option>Reforma</option>
-                      <option>Hidráulica</option>
-                      <option>Elétrica</option>
-                      <option>Pintura</option>
-                      <option>Gesso e Drywall</option>
-                      <option>Serralheria</option>
-                      <option>Marcenaria</option>
-                      <option>Vidraçaria</option>
-                      <option>Impermeabilização</option>
-                      <option>Telhados e Coberturas</option>
-                      <option>Instalações em geral</option>
-                      <option>Serviços Gerais (Faz-tudo)</option>
-                    </optgroup>
-                    <optgroup label="❄️ Manutenção e Equipamentos">
-                      <option>Manutenção</option>
-                      <option>Refrigeração</option>
-                      <option>Climatização (Ar-condicionado)</option>
-                      <option>Eletrodomésticos</option>
-                      <option>Máquinas e Equipamentos</option>
-                      <option>Automação Residencial</option>
-                    </optgroup>
-                    <optgroup label="🧹 Limpeza e Conservação">
-                      <option>Limpeza</option>
-                      <option>Limpeza Pós-Obra</option>
-                      <option>Conservação Predial</option>
-                      <option>Dedetização e Controle de Pragas</option>
-                      <option>Jardinagem</option>
-                      <option>Paisagismo</option>
-                    </optgroup>
-                    <optgroup label="🚗 Transporte e Veículos">
-                      <option>Transporte</option>
-                      <option>Mudanças</option>
-                      <option>Fretes</option>
-                      <option>Mecânica Automotiva</option>
-                      <option>Auto Elétrica</option>
-                      <option>Lavagem e Estética Automotiva</option>
-                    </optgroup>
-                    <optgroup label="💻 Tecnologia e Digital">
-                      <option>Tecnologia</option>
-                      <option>Suporte Técnico</option>
-                      <option>Desenvolvimento de Software</option>
-                      <option>Design</option>
-                      <option>Marketing</option>
-                      <option>Tráfego Pago</option>
-                      <option>Social Media</option>
-                      <option>Fotografia</option>
-                      <option>Produção de Vídeo</option>
-                      <option>Audiovisual</option>
-                    </optgroup>
-                    <optgroup label="🎓 Educação e Treinamento">
-                      <option>Educação</option>
-                      <option>Aulas Particulares</option>
-                      <option>Cursos Livres</option>
-                      <option>Idiomas</option>
-                      <option>Reforço Escolar</option>
-                    </optgroup>
-                    <optgroup label="🎉 Eventos e Entretenimento">
-                      <option>Eventos</option>
-                      <option>Decoração</option>
-                      <option>Buffet / Catering</option>
-                      <option>DJ e Sonorização</option>
-                      <option>Iluminação para Eventos</option>
-                      <option>Organização de Eventos</option>
-                    </optgroup>
-                    <optgroup label="👤 Serviços Pessoais">
-                      <option>Serviços Pessoais</option>
-                      <option>Cuidados com Idosos</option>
-                      <option>Babá</option>
-                      <option>Cuidador</option>
-                      <option>Pet Services (banho, passeio, adestramento)</option>
-                      <option>Estética e Beleza</option>
-                    </optgroup>
-                    <optgroup label="🏢 Empresarial e Profissional">
-                      <option>Serviços Empresariais</option>
-                      <option>Consultoria</option>
-                      <option>Contabilidade</option>
-                      <option>Jurídico</option>
-                      <option>Recursos Humanos</option>
-                      <option>Segurança Patrimonial</option>
-                    </optgroup>
-                  </select>
-                </div>
+          {/* Section 1: Identidade & Segurança */}
+          <section className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <Shield size={20} className="text-orange-500"/>
+                  <h2 className="font-bold text-slate-700">Identidade & Segurança</h2>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                      <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Nome Completo</label>
+                      <input type="text" required value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"/>
+                  </div>
+                  <div>
+                      <label className="block text-xs font-bold uppercase text-slate-500 mb-1">CPF (Obrigatório)</label>
+                      <input type="text" placeholder="000.000.000-00" required value={form.cpf} onChange={e => setForm({...form, cpf: e.target.value})} className={`w-full rounded-xl border ${isValidCPF(form.cpf) ? "border-green-200 bg-green-50 text-green-700" : "border-slate-200 bg-slate-50"} px-4 py-2.5 text-sm`}/>
+                      {!isValidCPF(form.cpf) && form.cpf.length > 0 && <p className="text-[10px] text-red-500 mt-1">CPF Invalido</p>}
+                  </div>
+                  <div>
+                      <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Telefone</label>
+                      <input type="tel" required value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"/>
+                  </div>
+                  <div>
+                      <label className="block text-xs font-bold uppercase text-slate-500 mb-1">WhatsApp</label>
+                      <input type="tel" required value={form.whatsapp} onChange={e => setForm({...form, whatsapp: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"/>
+                  </div>
+              </div>
+          </section>
 
-                <div className="md:col-span-2">
-                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Sobre você
-                  </label>
+          {/* Section 2: Informações Profissionais */}
+          <section className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <Briefcase size={20} className="text-blue-500"/>
+                  <h2 className="font-bold text-slate-700">Dados Profissionais</h2>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                       <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Categoria Principal</label>
+                       <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm" required>
+                           <option value="">Selecione sua categoria...</option>
+                           {categories.length === 0 ? (
+                             <option disabled>Carregando categorias...</option>
+                           ) : (
+                             categoryOptions
+                           )}
+                       </select>
+                  </div>
+
+                  <div>
+                       <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Tipo de Atendimento</label>
+                       <select value={form.serviceType} onChange={e => setForm({...form, serviceType: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm">
+                           <option value="">Selecione...</option>
+                           <option value="Residencial">Residencial</option>
+                           <option value="Comercial">Comercial</option>
+                           <option value="Industrial">Industrial</option>
+                           <option value="Todos">Todos os tipos</option>
+                       </select>
+                  </div>
+
+                  <div>
+                       <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Tempo de Experiência</label>
+                       <select value={form.experience} onChange={e => setForm({...form, experience: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm">
+                           <option value="">Selecione...</option>
+                           <option value="Iniciante">Menos de 1 ano</option>
+                           <option value="1-3 anos">1 a 3 anos</option>
+                           <option value="3-5 anos">3 a 5 anos</option>
+                           <option value="+5 anos">Mais de 5 anos</option>
+                           <option value="+10 anos">Mais de 10 anos</option>
+                       </select>
+                  </div>
+
+                  <div className="flex gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600">
+                          <input type="checkbox" checked={form.hasCnpj} onChange={e => setForm({...form, hasCnpj: e.target.checked})} className="rounded text-orange-600 focus:ring-orange-500"/>
+                          Possui CNPJ?
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600">
+                          <input type="checkbox" checked={form.issuesInvoice} onChange={e => setForm({...form, issuesInvoice: e.target.checked})} className="rounded text-orange-600 focus:ring-orange-500"/>
+                          Emite Nota Fiscal?
+                      </label>
+                  </div>
+              </div>
+          </section>
+
+          {/* Section 3: Área de Atuação */}
+           <section className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <UserIcon size={20} className="text-green-500"/>
+                  <h2 className="font-bold text-slate-700">Localização e Atuação</h2>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                 <div>
+                    <label className="block text-xs font-bold uppercase text-slate-500 mb-1">CEP</label>
+                    <input type="text" value={form.zip} onChange={e => {
+                        const val = e.target.value;
+                        setForm({...form, zip: val});
+                        if(val.replace(/\D/g, "").length === 8) fetchCep(val);
+                    }} onBlur={() => fetchCep(form.zip)} placeholder="00000-000" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"/>
+                    {cepStatus && <p className="text-[10px] text-slate-400 mt-1">{cepStatus}</p>}
+                 </div>
+                 
+                 <div className="md:col-span-2 grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Cidade Principal</label>
+                        <input type="text" value={form.city} onChange={e => setForm({...form, city: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"/>
+                    </div>
+                     <div>
+                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Estado</label>
+                        <input type="text" value={form.state} onChange={e => setForm({...form, state: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"/>
+                    </div>
+                 </div>
+
+                 <div>
+                    <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Endereço Completo</label>
+                    <input type="text" value={form.address} onChange={e => setForm({...form, address: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"/>
+                 </div>
+                 <div>
+                    <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Número</label>
+                    <input type="text" value={form.number} onChange={e => setForm({...form, number: e.target.value})} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm"/>
+                 </div>
+
+                 <div className="md:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                     <div className="flex items-center justify-between mb-2">
+                        <label className="flex items-center gap-2 font-bold text-sm text-slate-700">
+                            <input type="checkbox" checked={form.attendsOtherCities} onChange={e => setForm({...form, attendsOtherCities: e.target.checked})} className="rounded text-orange-600 focus:ring-orange-500"/>
+                            Atende outras cidades na região?
+                        </label>
+                        <span className="text-xs font-mono bg-white px-2 py-1 rounded border text-slate-500">{form.serviceRadius} km</span>
+                     </div>
+                     {form.attendsOtherCities && (
+                        <div>
+                             <input 
+                              type="range" 
+                              min="0" 
+                              max="150" 
+                              step="5"
+                              value={form.serviceRadius} 
+                              onChange={e => setForm({...form, serviceRadius: parseInt(e.target.value)})}
+                              className="w-full accent-orange-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                            />
+                            <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                                <span>Bairro</span>
+                                <span>Cidade Vizinha (50km)</span>
+                                <span>Regional (150km)</span>
+                            </div>
+                        </div>
+                     )}
+                 </div>
+              </div>
+           </section>
+
+           {/* Section 4: Qualidade & Disponibilidade */}
+           <section className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                  <Star size={20} className="text-amber-500"/>
+                  <h2 className="font-bold text-slate-700">Qualidade e Detalhes</h2>
+              </div>
+              
+              <div>
+                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Disponibilidade de Horário</label>
+                 <div className="flex flex-wrap gap-2">
+                     {["Segunda a Sexta", "Finais de Semana", "Horário Comercial", "Noturno", "Plantão 24h"].map((opt) => (
+                         <button
+                            type="button"
+                            key={opt}
+                            onClick={() => handleAvailabilityChange(opt)}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${
+                                form.availability && form.availability.includes(opt) 
+                                ? "bg-orange-50 border-orange-200 text-orange-700" 
+                                : "bg-white border-slate-200 text-slate-500 hover:border-orange-200"
+                            }`}
+                         >
+                            {opt}
+                         </button>
+                     ))}
+                 </div>
+              </div>
+
+               <div>
+                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Sobre Você</label>
                   <textarea
                     value={form.bio}
                     onChange={(event) => setForm({ ...form, bio: event.target.value })}
+                    placeholder="Descreva seus serviços, diferenciais e experiência..."
                     className="min-h-[110px] w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-orange-500"
                   />
+                  <p className="text-right text-[10px] text-slate-400 mt-1">{form.bio.length} caracteres (min. 50 recomendado)</p>
                 </div>
-              </div>
-            </div>
-          </div>
+           </section>
 
           {status && (
-            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600 font-medium text-center">
               {status}
             </div>
           )}
 
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 pt-4 border-t border-slate-100">
             <button
               type="submit"
-              className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-orange-500"
+              className="flex-1 rounded-xl bg-orange-600 px-6 py-4 text-sm font-bold text-white transition-colors hover:bg-orange-500 shadow-lg shadow-orange-200"
             >
-              Salvar alterações
+              Salvar Perfil Profissional
             </button>
             <Link
               href="/prestador"
-              className="rounded-xl border border-slate-200 px-6 py-3 text-sm font-bold text-slate-600 transition-colors hover:border-orange-200 hover:text-orange-600"
+              className="rounded-xl border border-slate-200 px-6 py-4 text-sm font-bold text-slate-600 transition-colors hover:border-orange-200 hover:text-orange-600"
             >
-              Voltar ao painel
+              Cancelar
             </Link>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );

@@ -36,7 +36,21 @@ import {
   Clock,
   MapPin,
   Tag,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ArrowUpRight,
+  ArrowRight,
+  MoreHorizontal,
+  PieChart as PieChartIcon,
+  TrendingUp,
+  Sparkles,
+  Award,
+  DollarSign,
+  Calendar,
+  Briefcase,
+  Zap,
+  Activity,
+  AlertCircle,
+  Crown,
 } from "lucide-react";
 
 type AdminUser = {
@@ -44,10 +58,21 @@ type AdminUser = {
   name: string;
   email: string;
   role: "client" | "provider" | "admin";
+  created_at?: string;
   phone?: string | null;
   whatsapp?: string | null;
   city?: string | null;
   state?: string | null;
+  category?: string | null;
+  cpf?: string | null;
+  profileUrl?: string | null;
+  serviceType?: string | null;
+  hasCnpj?: boolean | null;
+  issuesInvoice?: boolean | null;
+  attendsOtherCities?: boolean | null;
+  serviceRadius?: number | null;
+  experience?: string | null;
+  availability?: string[] | null;
 };
 
 type AdminAd = {
@@ -69,17 +94,18 @@ type AuthUser = {
 };
 
 type SidebarItemProps = {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: React.ComponentType<{ size?: number | string; className?: string }>;
   label: string;
   isActive?: boolean;
   subItems?: Array<{
     label: string;
+    value?: string;
     active?: boolean;
     count?: number;
     isDanger?: boolean;
     onClick?: () => void;
   }>;
-  onSubItemClick?: (label: string) => void;
+  onSubItemClick?: (value: string) => void;
   isOpen?: boolean;
   alertCount?: number;
   isCollapsed?: boolean;
@@ -103,23 +129,25 @@ const SidebarItem = ({
       <div
         onClick={() => !isCollapsed && subItems.length > 0 && setIsOpen(!isOpen)}
         className={`
-          flex items-center px-3 py-2.5 mx-2 rounded-lg cursor-pointer transition-all duration-200 select-none
+          flex items-center px-3 py-2.5 mx-2 rounded-xl cursor-pointer transition-all duration-200 select-none
           ${isActive
-            ? "bg-orange-50 text-orange-700 shadow-sm border border-orange-100"
+            ? "bg-gradient-to-r from-orange-500/10 to-amber-500/10 text-orange-700 shadow-sm border border-orange-200/50"
             : "text-slate-500 hover:bg-slate-100/80 hover:text-slate-800"}
           ${isCollapsed ? "justify-center px-2" : "justify-between"}
         `}
         title={isCollapsed ? label : ""}
       >
         <div className={`flex items-center gap-3 overflow-hidden ${isCollapsed ? "w-auto" : "flex-1"}`}>
-          <Icon
-            size={isCollapsed ? 22 : 18}
-            className={`shrink-0 transition-all ${
-              isActive
-                ? "text-orange-600"
-                : "text-slate-400 group-hover/item:text-slate-600"
-            }`}
-          />
+          <div className={`${isActive ? "p-1.5 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20" : ""}`}>
+            <Icon
+              size={isCollapsed ? 22 : isActive ? 14 : 18}
+              className={`shrink-0 transition-all ${
+                isActive
+                  ? ""
+                  : "text-slate-400 group-hover/item:text-slate-600"
+              }`}
+            />
+          </div>
           <span
             className={`font-medium text-xs truncate transition-all duration-300 ${
               isCollapsed ? "w-0 opacity-0 hidden" : "w-auto opacity-100"
@@ -132,7 +160,7 @@ const SidebarItem = ({
         {!isCollapsed && (
           <div className="flex items-center gap-2 fade-in">
             {alertCount > 0 && !isOpen && (
-              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center animate-pulse">
+              <span className="bg-gradient-to-r from-red-500 to-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-lg shadow-red-500/20">
                 {alertCount}
               </span>
             )}
@@ -148,32 +176,32 @@ const SidebarItem = ({
         )}
 
         {isCollapsed && alertCount > 0 && (
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
+          <span className="absolute top-0.5 right-0.5 w-3 h-3 bg-gradient-to-r from-red-500 to-rose-500 rounded-full border-2 border-white shadow-lg" />
         )}
       </div>
 
       {showSubmenu && (
-        <div className="ml-5 pl-3 border-l-2 border-slate-100 mt-1 mb-2 space-y-0.5 animate-in slide-in-from-top-1 duration-200">
+        <div className="ml-5 pl-3 border-l-2 border-orange-100 mt-1 mb-2 space-y-0.5 animate-fade-in">
           {subItems.map((item, index) => (
             <div
               key={`${item.label}-${index}`}
               onClick={(e) => {
                 e.stopPropagation();
                 if (item.onClick) item.onClick();
-                if (onSubItemClick) onSubItemClick(item.label);
+                if (onSubItemClick) onSubItemClick(item.value || item.label);
               }}
               className={`
-                flex items-center justify-between text-[11px] py-1.5 px-3 rounded-md cursor-pointer transition-colors
+                flex items-center justify-between text-[11px] py-2 px-3 rounded-lg cursor-pointer transition-all
                 ${item.active
-                  ? "text-orange-700 font-semibold bg-orange-50"
+                  ? "text-orange-700 font-semibold bg-gradient-to-r from-orange-50 to-amber-50 shadow-sm"
                   : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"}
               `}
             >
               <span className="truncate">{item.label}</span>
               {item.count && item.count > 0 && (
                 <span
-                  className={`text-[9px] font-bold px-1.5 rounded-full ${
-                    item.isDanger ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-500"
+                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                    item.isDanger ? "bg-gradient-to-r from-red-100 to-rose-100 text-red-600" : "bg-slate-100 text-slate-500"
                   }`}
                 >
                   {item.count}
@@ -187,47 +215,66 @@ const SidebarItem = ({
   );
 };
 
-const StatusBadge = ({ status }: { status: "ACTIVE" | "BLOCKED" | "PENDING" }) => {
-  const styles = {
-    ACTIVE: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    BLOCKED: "bg-red-50 text-red-700 border-red-200",
-    PENDING: "bg-amber-50 text-amber-700 border-amber-200"
+const StatusBadge = ({ status }: { status: string }) => {
+  const styles: Record<string, string> = {
+    ACTIVE: "bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-700 border-emerald-200 shadow-sm shadow-emerald-500/10",
+    SUSPENDED: "bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 border-amber-200 shadow-sm shadow-amber-500/10",
+    BLOCKED: "bg-gradient-to-r from-orange-50 to-red-50 text-orange-700 border-orange-200 shadow-sm shadow-orange-500/10",
+    BANNED: "bg-gradient-to-r from-red-50 to-rose-50 text-red-700 border-red-200 shadow-sm shadow-red-500/10",
+    PENDING: "bg-gradient-to-r from-slate-50 to-gray-50 text-slate-700 border-slate-200 shadow-sm"
   };
 
-  const labels = {
+  const icons: Record<string, React.ReactNode> = {
+    ACTIVE: <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1"></span>,
+    SUSPENDED: <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse mr-1"></span>,
+    BLOCKED: <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mr-1"></span>,
+    BANNED: <span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1"></span>,
+    PENDING: <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mr-1"></span>
+  };
+
+  const labels: Record<string, string> = {
     ACTIVE: "Ativo",
+    SUSPENDED: "Suspenso",
     BLOCKED: "Bloqueado",
+    BANNED: "Banido",
     PENDING: "Pendente"
   };
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${
-        styles[status]
+      className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold border ${
+        styles[status] || styles.PENDING
       }`}
     >
-      {labels[status]}
+      {icons[status]}
+      {labels[status] || status}
     </span>
   );
 };
 
 const UserBadge = ({ role }: { role: string }) => {
+  if (!role) return null;
   const isAdmin = role.toUpperCase() === "ADMIN";
+  const isProvider = role.toUpperCase() === "PROVIDER";
+  
+  const badgeStyles = isAdmin 
+    ? "bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-md shadow-purple-500/20" 
+    : isProvider 
+      ? "bg-gradient-to-r from-orange-100 to-amber-100 text-orange-700 border border-orange-200"
+      : "bg-slate-100 text-slate-600";
+  
   return (
-    <span
-      className={`
-      inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider
-      ${isAdmin ? "text-purple-700" : "text-slate-600"}
-    `}
-    >
-      {isAdmin && <ShieldCheck size={12} />}
+    <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg ${badgeStyles}`}>
+      {isAdmin && <Crown size={12} />}
+      {isProvider && <Briefcase size={10} />}
       {isAdmin ? "Admin" : role.toUpperCase() === "CLIENT" ? "Cliente" : "Prestador"}
     </span>
   );
 };
 
 const Avatar = ({ name, url, collapsed, size = 'md' }: { name: string; url?: string; collapsed?: boolean; size?: 'sm' | 'md' | 'lg' }) => {
-  const initials = name
+  const safeName = name || "Usuario";
+  const initials = safeName
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -235,9 +282,9 @@ const Avatar = ({ name, url, collapsed, size = 'md' }: { name: string; url?: str
     .toUpperCase();
 
   const sizeClasses = {
-    sm: 'w-6 h-6 text-[10px]',
-    md: collapsed ? 'w-10 h-10 text-sm' : 'w-9 h-9 text-xs',
-    lg: 'w-12 h-12 text-sm'
+    sm: 'w-8 h-8 text-[10px]',
+    md: collapsed ? 'w-10 h-10 text-sm' : 'w-10 h-10 text-xs',
+    lg: 'w-14 h-14 text-sm'
   };
 
   const currentSizeClass = sizeClasses[size] || sizeClasses.md;
@@ -247,7 +294,7 @@ const Avatar = ({ name, url, collapsed, size = 'md' }: { name: string; url?: str
       <img
         src={url}
         alt={name}
-        className={`${currentSizeClass} rounded-full border border-slate-200 shadow-sm object-cover`}
+        className={`${currentSizeClass} rounded-xl border-2 border-white shadow-lg shadow-slate-200/50 object-cover ring-2 ring-slate-100`}
       />
     );
   }
@@ -255,9 +302,9 @@ const Avatar = ({ name, url, collapsed, size = 'md' }: { name: string; url?: str
   return (
     <div
       className={`
-      rounded-full bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center text-slate-500 font-bold shrink-0 select-none transition-all
+      rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 border-2 border-white shadow-lg shadow-slate-200/50 flex items-center justify-center text-slate-600 font-bold shrink-0 select-none transition-all ring-2 ring-slate-100
       ${currentSizeClass}
-      ${collapsed ? "bg-orange-50 text-orange-600 border-orange-200" : ""}
+      ${collapsed ? "bg-gradient-to-br from-orange-100 to-amber-100 text-orange-600 ring-orange-100" : ""}
     `}
     >
       {initials}
@@ -266,126 +313,230 @@ const Avatar = ({ name, url, collapsed, size = 'md' }: { name: string; url?: str
 };
 
 
-const UsersView = ({ userRows }: { userRows: any[] }) => (
-  <div className="max-w-[1600px] mx-auto space-y-6">
-    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md uppercase tracking-wider">
-            Gestão
-          </span>
-          <span className="text-slate-300">/</span>
-          <span className="text-xs font-medium text-slate-500">Usuários</span>
-        </div>
-        <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Base de Usuários</h2>
-      </div>
 
-      <div className="flex gap-2">
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-800 text-sm font-medium transition-all shadow-sm">
-          <Filter size={16} />
-          <span>Filtros Avançados</span>
-        </button>
-        <button className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium transition-all shadow-md shadow-orange-200 hover:shadow-orange-300 hover:-translate-y-0.5">
-          <Download size={16} />
-          <span>Exportar</span>
-        </button>
+const LevelBadge = ({ level }: { level: string }) => {
+  const styles: any = {
+    Gratuito: "bg-slate-100 text-slate-600",
+    Premium: "bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-md shadow-purple-500/20",
+    Verificado: "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md shadow-blue-500/20"
+  };
+  const icons: any = {
+    Gratuito: null,
+    Premium: <Crown size={10} className="mr-1" />,
+    Verificado: <ShieldCheck size={10} className="mr-1" />
+  };
+  return (
+    <span className={`inline-flex items-center text-[10px] uppercase font-bold px-2 py-1 rounded-lg ${styles[level] || styles.Gratuito}`}>
+       {icons[level]}
+       {level}
+    </span>
+  )
+}
+
+const UsersView = ({ userRows }: { userRows: any[] }) => (
+  <div className="max-w-[1600px] mx-auto space-y-6 animate-fade-in">
+    {/* Header Premium */}
+    <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-8 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute top-0 left-0 w-96 h-96 bg-orange-500 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+        <div className="absolute bottom-0 right-0 w-64 h-64 bg-amber-500 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
+      </div>
+      <div className="absolute top-4 right-4 w-24 h-24 border border-white/10 rounded-full"></div>
+      <div className="absolute top-8 right-8 w-16 h-16 border border-white/10 rounded-full"></div>
+      
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Users size={16} className="text-orange-400" />
+            <span className="text-orange-400 text-sm font-bold uppercase tracking-wider">Gestão de Usuários</span>
+          </div>
+          <h2 className="text-3xl font-bold text-white tracking-tight">Base de Usuários</h2>
+          <p className="text-slate-400 mt-2">Gerencie todos os usuários da plataforma</p>
+        </div>
+
+        <div className="flex gap-3">
+           <button className="flex items-center gap-2 px-5 py-3 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-xl hover:bg-white/20 text-sm font-medium transition-all">
+             <Filter size={16} />
+             <span>Filtros</span>
+           </button>
+           <button className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl hover:from-orange-600 hover:to-amber-600 text-sm font-bold transition-all shadow-lg shadow-orange-500/25 hover:shadow-xl hover:-translate-y-0.5">
+             <Download size={16} />
+             <span>Exportar</span>
+           </button>
+        </div>
       </div>
     </div>
 
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden ring-1 ring-slate-100">
-      <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4 bg-white">
-        <div className="flex items-center gap-2">
-          <div className="relative group">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500" />
-            <input
-              type="text"
-              placeholder="Filtrar por nome..."
-              className="pl-9 pr-4 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-orange-300 focus:ring-4 focus:ring-orange-50 transition-all w-64"
-            />
-          </div>
-          <select className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-600 focus:outline-none focus:border-orange-300 cursor-pointer">
-            <option>Todos os perfis</option>
-            <option>Administradores</option>
-            <option>Prestadores</option>
-            <option>Clientes</option>
-          </select>
-          <select className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-600 focus:outline-none focus:border-orange-300 cursor-pointer">
-            <option>Status: Todos</option>
-            <option>Ativos</option>
-            <option>Bloqueados</option>
-          </select>
+    {/* Filtros Avançados Premium */}
+    <div className="bg-white p-5 rounded-2xl shadow-xl shadow-slate-900/5 border border-slate-100 flex flex-wrap gap-4 items-end">
+        <div className="flex-1 min-w-[200px]">
+           <label className="text-xs font-bold text-slate-600 mb-2 block">Buscar</label>
+           <div className="relative">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"/>
+              <input type="text" placeholder="Nome, email ou ID..." className="w-full pl-11 pr-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/10 transition-all"/>
+           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span className="font-bold text-slate-700">{userRows.length}</span> usuários encontrados
+        
+        <div className="w-44">
+           <label className="text-xs font-bold text-slate-600 mb-2 block">Tipo de Usuário</label>
+           <select className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-600 focus:outline-none focus:border-orange-400 cursor-pointer transition-all">
+              <option>Todos</option>
+              <option>Prestador</option>
+              <option>Cliente</option>
+              <option>Ambos</option>
+           </select>
         </div>
+
+        <div className="w-44">
+           <label className="text-xs font-bold text-slate-600 mb-2 block">Status</label>
+           <select className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-600 focus:outline-none focus:border-orange-400 cursor-pointer transition-all">
+              <option>Todos</option>
+              <option>Ativo</option>
+              <option>Suspenso</option>
+              <option>Bloqueado</option>
+              <option>Banido</option>
+           </select>
+        </div>
+
+         <div className="w-44">
+           <label className="text-xs font-bold text-slate-600 mb-2 block">Nível</label>
+           <select className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-600 focus:outline-none focus:border-orange-400 cursor-pointer transition-all">
+              <option>Todos</option>
+              <option>Gratuito</option>
+              <option>Premium</option>
+              <option>Verificado</option>
+           </select>
+        </div>
+
+        <button className="px-6 py-3 bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-xl text-sm font-bold hover:from-slate-900 hover:to-slate-800 transition-all flex items-center gap-2 shadow-lg shadow-slate-900/20">
+           <Filter size={16} /> Aplicar
+        </button>
+    </div>
+
+    <div className="bg-white rounded-2xl shadow-xl shadow-slate-900/5 border border-slate-100 overflow-hidden">
+      <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between gap-4 bg-gradient-to-r from-slate-50 to-white">
+        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+          <Activity size={18} className="text-orange-500" />
+          Listagem Completa
+        </h3>
+        <span className="text-xs bg-gradient-to-r from-orange-100 to-amber-100 px-3 py-1.5 rounded-lg text-orange-700 font-bold shadow-sm">{userRows.length} registros</span>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/80 border-b border-slate-100">
-              <th className="py-3 px-6 w-12 text-center">
-                <input type="checkbox" className="rounded border-slate-300 text-orange-600 focus:ring-orange-200 cursor-pointer w-4 h-4" />
-              </th>
-              <th className="py-3 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Usuário</th>
-              <th className="py-3 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
-              <th className="py-3 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Perfil</th>
-              <th className="py-3 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Contato</th>
-              <th className="py-3 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Localização</th>
-              <th className="py-3 px-6 text-[11px] font-bold text-slate-400 uppercase tracking-wider text-right">Ações</th>
+            <tr className="bg-gradient-to-r from-slate-50 to-slate-100/50 border-b border-slate-200">
+              <th className="py-4 px-4 w-10 text-center"><input type="checkbox" className="rounded border-slate-300 text-orange-600 focus:ring-orange-200" /></th>
+              <th className="py-4 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Usuário / ID</th>
+              <th className="py-4 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Perfil & Nível</th>
+              <th className="py-4 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Confiança</th>
+              <th className="py-4 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Detalhes</th>
+              <th className="py-4 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
+              <th className="py-4 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Anúncios</th>
+              <th className="py-4 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Avaliação</th>
+              <th className="py-4 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Cadastro / Acesso</th>
+              <th className="py-4 px-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-100">
             {userRows.map((row) => (
-              <tr key={row.id} className="hover:bg-orange-50/30 transition-colors group">
-                <td className="py-3 px-6 text-center">
-                  <input type="checkbox" className="rounded border-slate-300 text-orange-600 focus:ring-orange-200 cursor-pointer w-4 h-4" />
+              <tr key={row.id} className="hover:bg-gradient-to-r hover:from-orange-50/30 hover:to-amber-50/20 transition-all group">
+                <td className="py-4 px-4 text-center">
+                  <input type="checkbox" className="rounded border-slate-300 text-orange-600 focus:ring-orange-200" />
                 </td>
-                <td className="py-3 px-6">
+                
+                {/* Usuário / ID */}
+                <td className="py-4 px-4 max-w-[250px]">
                   <div className="flex items-center gap-3">
-                    <Avatar name={row.name} />
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-sm text-slate-700 group-hover:text-orange-700 transition-colors">
-                        {row.name}
-                      </span>
-                      <span className="text-xs text-slate-400">{row.email}</span>
+                    <Avatar name={row.name} size="sm" />
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-2">
+                         <span className="font-bold text-sm text-slate-800 truncate group-hover:text-orange-700 transition-colors" title={row.name}>{row.name}</span>
+                         <span className="text-[10px] text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">#{row.id}</span>
+                      </div>
+                      <span className="text-xs text-slate-400 truncate" title={row.email}>{row.email}</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] text-slate-500 flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded"><MapPin size={10}/> {row.cityLabel}</span>
+                        {row.contact !== "-" && <span className="text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded">{row.contact}</span>}
+                      </div>
                     </div>
                   </div>
                 </td>
-                <td className="py-3 px-6">
+
+                {/* Perfil & Nível */}
+                <td className="py-4 px-4">
+                  <div className="flex flex-col gap-2 items-start">
+                     <UserBadge role={row.role} />
+                     <LevelBadge level={row.accountLevel} />
+                  </div>
+                </td>
+
+                {/* Confiança */}
+                <td className="py-4 px-4">
+                  <div className="flex flex-col gap-1.5">
+                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg w-fit ${
+                        row.reliabilityScore >= 70 ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700" :
+                        row.reliabilityScore >= 50 ? "bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-700" :
+                        "bg-gradient-to-r from-red-100 to-rose-100 text-red-700"
+                     }`}>
+                        {row.reliabilityScore}%
+                     </span>
+                     {row.cpfValid && <span className="text-[9px] text-green-600 flex items-center gap-1 font-bold bg-green-50 px-2 py-0.5 rounded"><ShieldCheck size={10}/> CPF Válido</span>}
+                  </div>
+                </td>
+                
+                {/* Detalhes */}
+                <td className="py-4 px-4">
+                   <div className="flex flex-wrap items-center gap-1">
+                      {row.hasCnpj && <span title="Possui CNPJ" className="text-[9px] font-bold text-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50 px-1.5 py-0.5 rounded-lg border border-blue-100">CNPJ</span>}
+                      {row.issuesInvoice && <span title="Emite Nota Fiscal" className="text-[9px] font-bold text-purple-600 bg-purple-50 px-1 rounded border border-purple-100">NF</span>}
+                      {(row.serviceRadius || 0) > 0 && <span title={`Raio: ${row.serviceRadius}km`} className="text-[9px] text-slate-500 bg-slate-100 px-1 rounded flex items-center gap-0.5 border border-slate-200"><MapPin size={8}/> {row.serviceRadius}km</span>}
+                   </div>
+                   <div className="text-[10px] text-slate-400 mt-1 max-w-[120px] truncate leading-tight" title={row.category || "Sem Categoria"}>{row.category || "-"}</div>
+                </td>
+
+                {/* Status */}
+                <td className="py-3 px-4">
                   <StatusBadge status={row.status} />
                 </td>
-                <td className="py-3 px-6">
-                  <UserBadge role={row.role} />
+
+                {/* Anúncios */}
+                <td className="py-3 px-4">
+                   <div className="text-sm font-medium text-slate-700 text-center w-8">
+                      {row.activeAdsCount > 0 ? row.activeAdsCount : <span className="text-slate-300">-</span>}
+                   </div>
                 </td>
-                <td className="py-3 px-6">
-                  {row.contact === "-" ? (
-                    <span className="text-slate-300 text-xs">-</span>
-                  ) : (
-                    <div className="flex flex-col items-start gap-1">
-                      {row.contact.includes("Whats") ? (
-                        <span className="text-[10px] font-bold bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100">
-                          {row.contact}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-500 font-medium">{row.contact}</span>
-                      )}
-                    </div>
-                  )}
+
+                 {/* Avaliação */}
+                <td className="py-3 px-4">
+                   {row.rating !== "-" ? (
+                     <div className="flex items-center gap-1">
+                        <Star size={12} className="text-amber-400 fill-amber-400"/>
+                        <span className="text-sm font-bold text-slate-700">{row.rating}</span>
+                     </div>
+                   ) : <span className="text-slate-300 text-xs">-</span>}
                 </td>
-                <td className="py-3 px-6 text-xs text-slate-500 font-medium">
-                  {row.cityLabel === "-" ? <span className="text-slate-300">-</span> : row.cityLabel}
+
+                {/* Datas */}
+                <td className="py-3 px-4">
+                   <div className="flex flex-col text-xs">
+                      <span className="text-slate-600">Cad: {row.created_at ? new Date(row.created_at).toLocaleDateString('pt-BR') : "-"}</span>
+                      <span className="text-slate-400 text-[10px]">Último: {row.lastAccess}</span>
+                   </div>
                 </td>
-                <td className="py-3 px-6 text-right">
-                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                    <button className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors" title="Editar">
-                      <FileText size={16} />
+
+                {/* Ações */}
+                <td className="py-3 px-4 text-right relative">
+                  <div className="flex items-center justify-end gap-1 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-all">
+                    <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Ver Perfil">
+                      <Eye size={16} />
                     </button>
-                    <button className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Bloquear">
-                      <Ban size={16} />
+                    <button className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Mensagem">
+                       <MessageSquare size={16} />
                     </button>
-                    <button className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors">
-                      <MoreVertical size={16} />
+                    
+                    <button className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors">
+                       <MoreVertical size={16} />
                     </button>
                   </div>
                 </td>
@@ -394,8 +545,8 @@ const UsersView = ({ userRows }: { userRows: any[] }) => (
           </tbody>
         </table>
       </div>
-
-      <div className="py-4 px-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white">
+      
+       <div className="py-4 px-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white">
         <span className="text-xs text-slate-500">
           Exibindo <span className="font-bold text-slate-700">1-{userRows.length}</span> de {userRows.length} resultados
         </span>
@@ -415,106 +566,925 @@ const UsersView = ({ userRows }: { userRows: any[] }) => (
   </div>
 );
 
-const PendingAdsView = ({ ads }: { ads: AdminAd[] }) => {
-  const pendingAds = ads.filter((ad) => ad.status === "Em Analise");
-  return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header da Seção */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md uppercase tracking-wider">Moderação</span>
-            <span className="text-slate-300">/</span>
-            <span className="text-xs font-medium text-slate-500">Anúncios</span>
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Anúncios Pendentes</h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Existem <span className="font-bold text-orange-600">{pendingAds.length} anúncios</span> aguardando sua aprovação.
-          </p>
-        </div>
 
-        <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 text-sm font-medium transition-all shadow-sm">
-            <Clock size={16} />
-            <span>Mais recentes</span>
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium transition-all shadow-md shadow-emerald-200">
-            <CheckCircle size={16} />
-            <span>Aprovar Todos</span>
-          </button>
+const AdsStatsView = ({ ads }: { ads: AdminAd[] }) => {
+  const total = ads.length || 1;
+  const pending = ads.filter(a => a.status === "Em Analise").length;
+  const active = ads.filter(a => a.status === "Postado").length;
+  const rejected = ads.filter(a => a.status === "Reprovado").length;
+  // Simulação de expirados (já que não tem status na API)
+  const expired = 0;
+
+  const pendingPct = Math.round((pending / total) * 100);
+  const activePct = Math.round((active / total) * 100);
+  const rejectedPct = Math.round((rejected / total) * 100);
+  const expiredPct = 0;
+
+  // Calculando para gráfico de pizza (CSS Conic Gradient)
+  const p1 = activePct;
+  const p2 = p1 + pendingPct;
+  const p3 = p2 + rejectedPct;
+
+  // -------------------------------------------------------------
+  // Cálculos reais de Categorias
+  // -------------------------------------------------------------
+  
+  // 1. Agrupar anúncios por categorias reais
+  const categoryCounts = ads.reduce((acc, curr) => {
+    const cat = curr.category || "Sem Categoria";
+    acc[cat] = (acc[cat] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // 2. Transformar em array e ordenar por contagem
+  const sortedCategories = Object.entries(categoryCounts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // 3. Pegar top 5
+  const topCategories = sortedCategories.slice(0, 5);
+  
+  // 4. Maior valor para barra de progresso (normalizar em 100%)
+  const maxCount = topCategories[0]?.count || 1;
+
+  // 5. Insights rápidos reais
+  // Categoria com maior volume
+  const topVolumeCat = topCategories[0]?.name || "-";
+  
+  // Categoria com maior rejeição (cálculo extra)
+  const rejectedByCat = ads
+    .filter(a => a.status === "Reprovado")
+    .reduce((acc, curr) => {
+      const cat = curr.category || "Sem Categoria";
+      acc[cat] = (acc[cat] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+  const mostRejectedCat = Object.entries(rejectedByCat)
+    .sort((a, b) => b[1] - a[1])[0];
+    
+  const mostRejectedName = mostRejectedCat ? mostRejectedCat[0] : "-";
+  const mostRejectedCount = mostRejectedCat ? mostRejectedCat[1] : 0;
+
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Premium */}
+      <div className="relative bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 p-8 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+          <div className="absolute bottom-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
+        </div>
+        <div className="absolute top-4 right-4 w-24 h-24 border border-white/20 rounded-full"></div>
+        <div className="absolute top-8 right-8 w-16 h-16 border border-white/20 rounded-full"></div>
+        
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg">
+            <PieChartIcon size={28} className="text-white" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold text-white">Estatísticas de Anúncios</h2>
+            <p className="text-white/70 mt-1">Panorama geral do volume e estado dos anúncios</p>
+          </div>
         </div>
       </div>
 
-      {/* Grid de Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+      {/* Cards de KPIs Premium */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="group relative bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl shadow-xl overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total de Anúncios</p>
+            <div className="flex items-baseline gap-2 mt-2">
+               <h3 className="text-4xl font-bold text-white">{ads.length}</h3>
+               <span className="text-xs text-emerald-400 font-bold bg-emerald-400/10 px-2 py-1 rounded-full flex items-center gap-1">
+                 <TrendingUp size={10} /> +15%
+               </span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="group relative bg-gradient-to-br from-emerald-500 to-green-600 p-6 rounded-2xl shadow-xl text-white overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/25">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                <CheckCircle size={16} />
+              </div>
+              <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Ativos</p>
+            </div>
+            <h3 className="text-4xl font-bold">{active}</h3>
+            <p className="text-xs text-white/60 mt-1">{activePct}% do total</p>
+          </div>
+        </div>
+        
+        <div className="group relative bg-gradient-to-br from-orange-500 to-amber-600 p-6 rounded-2xl shadow-xl text-white overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/25">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                <Clock size={16} />
+              </div>
+              <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Pendentes</p>
+            </div>
+            <h3 className="text-4xl font-bold">{pending}</h3>
+            <p className="text-xs text-white/60 mt-1">{pendingPct}% aguardando</p>
+          </div>
+        </div>
+        
+        <div className="group relative bg-gradient-to-br from-red-500 to-rose-600 p-6 rounded-2xl shadow-xl text-white overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-red-500/25">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                <XCircle size={16} />
+              </div>
+              <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Rejeitados</p>
+            </div>
+            <h3 className="text-4xl font-bold">{rejected}</h3>
+            <p className="text-xs text-white/60 mt-1">{rejectedPct}% com problemas</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Gráfico de Distribuição Premium */}
+        <div className="bg-white p-6 rounded-2xl shadow-xl shadow-slate-900/5 border border-slate-100 lg:col-span-1 flex flex-col items-center justify-center">
+            <h3 className="text-lg font-bold text-slate-800 mb-6 w-full text-left flex items-center gap-2">
+              <Sparkles size={18} className="text-purple-500" />
+              Distribuição
+            </h3>
+            
+            <div className="relative w-52 h-52 rounded-full mb-6 shadow-2xl" 
+                 style={{
+                   background: `conic-gradient(
+                     #10B981 0% ${p1}%, 
+                     #F97316 ${p1}% ${p2}%, 
+                     #EF4444 ${p2}% ${p3}%, 
+                     #94A3B8 ${p3}% 100%
+                   )`
+                 }}>
+               <div className="absolute inset-5 bg-white rounded-full flex flex-col items-center justify-center shadow-inner">
+                  <span className="text-4xl font-bold text-slate-800">{ads.length}</span>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Total</span>
+               </div>
+            </div>
+
+            <div className="w-full space-y-3">
+               <div className="flex items-center justify-between text-sm p-2 rounded-lg hover:bg-emerald-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                     <div className="w-4 h-4 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 shadow-md shadow-emerald-500/20" />
+                     <span className="text-slate-600 font-medium">Ativos</span>
+                  </div>
+                  <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">{activePct}%</span>
+               </div>
+               <div className="flex items-center justify-between text-sm p-2 rounded-lg hover:bg-orange-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                     <div className="w-4 h-4 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 shadow-md shadow-orange-500/20" />
+                     <span className="text-slate-600 font-medium">Pendentes</span>
+                  </div>
+                  <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">{pendingPct}%</span>
+               </div>
+               <div className="flex items-center justify-between text-sm p-2 rounded-lg hover:bg-red-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                     <div className="w-4 h-4 rounded-full bg-gradient-to-br from-red-400 to-rose-500 shadow-md shadow-red-500/20" />
+                     <span className="text-slate-600 font-medium">Rejeitados</span>
+                  </div>
+                  <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded">{rejectedPct}%</span>
+               </div>
+            </div>
+        </div>
+
+        {/* Gráfico de Barras - Categoria Premium */}
+        <div className="bg-white p-6 rounded-2xl shadow-xl shadow-slate-900/5 border border-slate-100 lg:col-span-2">
+           <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <BarChart3 size={18} className="text-indigo-500" />
+                Top Categorias
+              </h3>
+              <button className="text-sm text-orange-600 hover:text-orange-700 font-bold transition-colors">Ver todas →</button>
+           </div>
+           
+           <div className="space-y-5">
+              {topCategories.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-sm">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center">
+                    <BarChart3 size={24} className="text-slate-300" />
+                  </div>
+                  Nenhuma categoria registrada
+                </div>
+              ) : (
+                topCategories.map((cat, i) => {
+                  const colors = [
+                    'from-indigo-500 to-purple-500',
+                    'from-blue-500 to-indigo-500',
+                    'from-emerald-500 to-teal-500',
+                    'from-orange-500 to-amber-500',
+                    'from-pink-500 to-rose-500'
+                  ];
+                  return (
+                      <div key={cat.name} className="space-y-2">
+                        <div className="flex justify-between text-sm font-medium">
+                            <span className="text-slate-700 font-bold">{cat.name}</span>
+                            <span className="text-slate-500 bg-slate-50 px-2 py-0.5 rounded">{cat.count} anúncios</span>
+                        </div>
+                        <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full bg-gradient-to-r ${colors[i] || colors[0]} rounded-full transition-all duration-1000 ease-out relative`}
+                              style={{ width: `${(cat.count / maxCount) * 100}%` }}
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                            </div>
+                        </div>
+                      </div>
+                  )
+                })
+              )}
+           </div>
+
+           <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-2 gap-4">
+              <div className="bg-gradient-to-br from-slate-50 to-indigo-50/50 p-5 rounded-xl border border-slate-100">
+                 <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                   <Award size={12} className="text-indigo-500" /> Categoria Mais Popular
+                 </h4>
+                 <p className="text-lg font-bold text-slate-800 mt-2 truncate">{topVolumeCat}</p>
+                 <p className="text-xs text-slate-400">Total: {topCategories[0]?.count || 0} anúncios</p>
+              </div>
+              <div className="bg-gradient-to-br from-slate-50 to-red-50/50 p-5 rounded-xl border border-slate-100">
+                 <h4 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                   <AlertCircle size={12} className="text-red-500" /> Maior Rejeição
+                 </h4>
+                 <p className="text-lg font-bold text-slate-800 mt-2 truncate">{mostRejectedName}</p>
+                 <p className="text-xs text-slate-400">{mostRejectedCount} reprovados</p>
+              </div>
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ------------------------------------------------------------------
+// VIEW: Estatísticas de Novos Cadastros 
+// ------------------------------------------------------------------
+const UsersStatsView = ({ users }: { users: AdminUser[] }) => {
+  // 1. KPIs Básicos
+  const total = users.length || 1;
+  const providers = users.filter(u => u.role === "provider").length;
+  const clients = users.filter(u => u.role === "client").length;
+  const admins = users.filter(u => u.role === "admin").length;
+
+  const providerPct = Math.round((providers / total) * 100);
+  const clientPct = Math.round((clients / total) * 100);
+
+  // Novos usuários (últimos 30 dias)
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+  
+  const newUsers = users.filter(u => {
+      if (!u.created_at) return false;
+      return new Date(u.created_at) >= thirtyDaysAgo;
+  });
+  const newUsersCount = newUsers.length;
+  const growthRate = Math.round((newUsersCount / (total - newUsersCount || 1)) * 100);
+
+  // 2. Distribuição por Cidade (Top 5)
+  const cityCounts = users.reduce((acc, curr) => {
+      if (curr.city) {
+          const city = curr.city.trim() + (curr.state ? ` - ${curr.state}` : "");
+          acc[city] = (acc[city] || 0) + 1;
+      }
+      return acc;
+  }, {} as Record<string, number>);
+
+  const topCities = Object.entries(cityCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  
+  const maxCityCount = topCities[0]?.count || 1;
+
+  // 3. Categorias de Prestadores (Top 5)
+  const providerCategories = users
+      .filter(u => u.role === "provider" && u.category)
+      .reduce((acc, curr) => {
+          const cat = curr.category!;
+          acc[cat] = (acc[cat] || 0) + 1;
+          return acc;
+      }, {} as Record<string, number>);
+
+  const topProviderCategories = Object.entries(providerCategories)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+  // 4. Últimos cadastros
+  const recentUsers = [...users]
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+    .slice(0, 5);
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Premium */}
+      <div className="relative bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 p-8 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+          <div className="absolute bottom-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
+        </div>
+        <div className="absolute top-4 right-4 w-24 h-24 border border-white/20 rounded-full"></div>
+        <div className="absolute top-8 right-8 w-16 h-16 border border-white/20 rounded-full"></div>
+        
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg">
+            <Users size={28} className="text-white" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold text-white">Novos Cadastros e Usuários</h2>
+            <p className="text-white/70 mt-1">Análise demográfica e crescimento da base</p>
+          </div>
+        </div>
+      </div>
+
+      {/* KPIs Premium */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="group relative bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl shadow-xl overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Base Total</p>
+            <div className="flex items-baseline gap-2 mt-2">
+               <h3 className="text-4xl font-bold text-white">{total}</h3>
+               <span className="text-xs text-blue-400 font-bold bg-blue-400/10 px-2 py-1 rounded-full">
+                 Ativos
+               </span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="group relative bg-gradient-to-br from-emerald-500 to-green-600 p-6 rounded-2xl shadow-xl text-white overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/25">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                <TrendingUp size={16} />
+              </div>
+              <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Novos (30d)</p>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-4xl font-bold">{newUsersCount}</h3>
+              {growthRate > 0 && <span className="text-xs text-white/80 font-bold flex items-center gap-1"><TrendingUp size={10}/> +{growthRate}%</span>}
+            </div>
+            <p className="text-xs text-white/60 mt-1">Crescimento recente</p>
+          </div>
+        </div>
+        
+        <div className="group relative bg-gradient-to-br from-purple-500 to-violet-600 p-6 rounded-2xl shadow-xl text-white overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/25">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                <Briefcase size={16} />
+              </div>
+              <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Prestadores</p>
+            </div>
+            <h3 className="text-4xl font-bold">{providers}</h3>
+            <p className="text-xs text-white/60 mt-1">{providerPct}% da base</p>
+          </div>
+        </div>
+        
+        <div className="group relative bg-gradient-to-br from-cyan-500 to-blue-600 p-6 rounded-2xl shadow-xl text-white overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-cyan-500/25">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                <Users size={16} />
+              </div>
+              <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Clientes</p>
+            </div>
+            <h3 className="text-4xl font-bold">{clients}</h3>
+            <p className="text-xs text-white/60 mt-1">{clientPct}% da base</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Top Cidades Premium */}
+        <div className="bg-white p-6 rounded-2xl shadow-xl shadow-slate-900/5 border border-slate-100 lg:col-span-1">
+           <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+             <div className="p-2 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100">
+               <MapPin size={16} className="text-blue-600"/>
+             </div>
+             Top Cidades
+           </h3>
+           <div className="space-y-5">
+             {topCities.length === 0 ? (
+               <p className="text-sm text-slate-400 text-center py-8">Nenhuma localização registrada.</p>
+             ) : (
+               topCities.map((city, i) => (
+                 <div key={city.name} className="relative group/city hover:bg-blue-50/50 p-2 -mx-2 rounded-lg transition-colors">
+                    <div className="flex justify-between text-sm mb-2 z-10 relative">
+                        <span className="font-medium text-slate-700">{city.name}</span>
+                        <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">{city.count}</span>
+                    </div>
+                    <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                       <div 
+                         className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-700" 
+                         style={{ width: `${(city.count / maxCityCount) * 100}%` }} 
+                       />
+                    </div>
+                 </div>
+               ))
+             )}
+           </div>
+        </div>
+
+        {/* Categorias de Prestadores Premium */}
+        <div className="bg-white p-6 rounded-2xl shadow-xl shadow-slate-900/5 border border-slate-100 lg:col-span-1">
+           <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+             <div className="p-2 rounded-lg bg-gradient-to-br from-purple-100 to-violet-100">
+               <Tag size={16} className="text-purple-600"/>
+             </div>
+             Áreas de Atuação
+           </h3>
+           <div className="space-y-3">
+             {topProviderCategories.length === 0 ? (
+               <p className="text-sm text-slate-400 text-center py-8">Nenhuma categoria de prestador.</p>
+             ) : (
+               topProviderCategories.map((cat, i) => (
+                 <div key={cat.name} className="flex items-center justify-between p-3 bg-gradient-to-r from-slate-50 to-purple-50/30 rounded-xl border border-slate-100 hover:border-purple-200 transition-colors group/cat">
+                    <div className="flex items-center gap-3">
+                       <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-violet-500 text-white flex items-center justify-center text-xs font-bold shadow-md shadow-purple-500/20">
+                         {i + 1}
+                       </div>
+                       <span className="text-sm font-medium text-slate-700 group-hover/cat:text-purple-700 transition-colors">{cat.name}</span>
+                    </div>
+                    <span className="text-sm font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-lg">{cat.count}</span>
+                 </div>
+               ))
+             )}
+           </div>
+        </div>
+
+        {/* Últimos Cadastros Premium */}
+        <div className="bg-white p-6 rounded-2xl shadow-xl shadow-slate-900/5 border border-slate-100 lg:col-span-1">
+           <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-100 to-green-100">
+                  <Clock size={16} className="text-emerald-600"/>
+                </div>
+                Recentes
+              </h3>
+              <button className="text-xs text-orange-600 font-bold hover:text-orange-700 transition-colors">Ver todos →</button>
+           </div>
+           <div className="space-y-4">
+              {recentUsers.map(user => (
+                <div key={user.id} className="flex items-start gap-3 p-3 rounded-xl bg-slate-50/50 hover:bg-gradient-to-r hover:from-orange-50/50 hover:to-amber-50/30 transition-colors border border-transparent hover:border-orange-100">
+                   <Avatar name={user.name} size="sm" />
+                   <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 leading-none truncate">{user.name}</p>
+                      <p className="text-xs text-slate-400 mt-1 truncate">{user.email}</p>
+                      <div className="flex gap-2 mt-2">
+                         <BadgeRole role={user.role} />
+                         {user.city && (
+                           <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                             <MapPin size={8} /> {user.city}
+                           </span>
+                         )}
+                      </div>
+                   </div>
+                </div>
+              ))}
+           </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+// Helper simples para badge
+const BadgeRole = ({ role }: { role: string }) => {
+   const colors = {
+     admin: "bg-red-100 text-red-700",
+     provider: "bg-purple-100 text-purple-700",
+     client: "bg-cyan-100 text-cyan-700"
+   };
+   const labels = {admin: "Admin", provider: "Prestador", client: "Cliente"};
+   // @ts-ignore
+   return <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${colors[role] || "bg-slate-100"}`}>{labels[role] || role}</span>
+}
+
+
+const StatsDashboardView = ({ 
+  users,
+  ads,
+  onNavigate 
+}: { 
+  users: AdminUser[];
+  ads: AdminAd[];
+  onNavigate: (view: string) => void;
+}) => {
+  const pendingCount = ads.filter(a => a.status === "Em Analise").length;
+  const reportedCount = 0; // Ainda sem endpoint de denúncias
+  const revenue = 0; // Faturamento zerado
+  const activeAdsCount = ads.filter(a => a.status === "Postado").length;
+  const rejectedAdsCount = ads.filter(a => a.status === "Reprovado").length;
+  const totalAds = ads.length || 1; // evitar divisao por zero
+  
+  // Usuários
+  const totalUsers = users.length;
+  const newUsers = users.filter(u => {
+    if (!u.created_at) return false;
+    const date = new Date(u.created_at);
+    // Últimos 30 dias
+    const diffTime = Math.abs(Date.now() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+    return diffDays <= 30;
+  }).length;
+  const onlineUsers = 0; // Real-time não disponível
+
+  // Dados para gráfico (últimos 7 dias de anúncios)
+  const last7Days = [...Array(7)].map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return d.toLocaleDateString("pt-BR", { weekday: 'short' });
+  });
+
+  return (
+  <div className="space-y-8 animate-fade-in">
+    {/* Header Premium */}
+    <div className="relative bg-gradient-to-r from-orange-600 via-amber-600 to-orange-600 p-8 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="absolute inset-0 opacity-20">
+        <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+        <div className="absolute bottom-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
+      </div>
+      <div className="absolute top-4 right-4 w-24 h-24 border border-white/20 rounded-full"></div>
+      <div className="absolute top-8 right-8 w-16 h-16 border border-white/20 rounded-full"></div>
+      
+      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg">
+            <LayoutDashboard size={28} className="text-white" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold text-white">Dashboard Geral</h2>
+            <p className="text-white/70 mt-1">Visão completa dos indicadores de desempenho</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm p-1.5 border border-white/20 rounded-xl">
+          <button className="px-4 py-2 text-xs font-bold bg-white text-orange-600 rounded-lg shadow-lg">30 Dias</button>
+          <button className="px-4 py-2 text-xs font-bold text-white/80 hover:text-white rounded-lg">7 Dias</button>
+          <div className="w-px h-6 bg-white/20 mx-1" />
+          <button className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+            <Filter size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* Cards Principais Premium */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
+      
+      {/* Card Faturamento */}
+      <div className="group relative bg-gradient-to-br from-emerald-500 to-green-600 p-6 rounded-2xl shadow-xl text-white overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/25">
+         <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+         <div className="relative">
+           <div className="flex items-center gap-2 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <CreditCard size={20} />
+              </div>
+           </div>
+           <h3 className="text-white/80 text-xs font-bold uppercase tracking-wider">Faturamento Mês</h3>
+           <p className="text-3xl font-bold mt-2">
+              {revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+           </p>
+           <p className="text-xs text-white/60 mt-2">Sem histórico</p>
+         </div>
+      </div>
+
+       {/* Card Online Agora */}
+      <div className="group relative bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-2xl shadow-xl text-white overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-500/25">
+         <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+         <div className="relative">
+           <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Globe size={20} />
+              </div>
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-white bg-white/20 px-2.5 py-1 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                Agora
+              </span>
+           </div>
+           <h3 className="text-white/80 text-xs font-bold uppercase tracking-wider">Usuários Online</h3>
+           <p className="text-3xl font-bold mt-2">{onlineUsers}</p>
+           <p className="text-xs text-white/60 mt-2">Tempo real</p>
+         </div>
+      </div>
+
+      {/* Card Novos Usuários */}
+      <div className="group relative bg-gradient-to-br from-blue-500 to-cyan-600 p-6 rounded-2xl shadow-xl text-white overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/25">
+         <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+         <div className="relative">
+           <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Users size={20} />
+              </div>
+              <span className="flex items-center gap-1 text-[10px] font-bold text-white bg-white/20 px-2.5 py-1 rounded-full">
+                <TrendingUp size={10} /> Novo
+              </span>
+           </div>
+           <h3 className="text-white/80 text-xs font-bold uppercase tracking-wider">Novos Cadastros</h3>
+           <p className="text-3xl font-bold mt-2">{newUsers}</p>
+           <p className="text-xs text-white/60 mt-2">Total Geral: {totalUsers}</p>
+         </div>
+      </div>
+
+      {/* Card Anúncios Pendentes */}
+      <div 
+        onClick={() => onNavigate("MANAGE_ADS_PENDING")}
+        className="group relative bg-gradient-to-br from-orange-500 to-amber-600 p-6 rounded-2xl shadow-xl text-white overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/25 cursor-pointer"
+      >
+         <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+         <div className="relative">
+           <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Clock size={20} />
+              </div>
+              {pendingCount > 0 && <span className="flex items-center gap-1 text-[10px] font-bold bg-white text-orange-600 px-2.5 py-1 rounded-full shadow-lg animate-pulse">
+                <AlertCircle size={10} /> Ação
+              </span>}
+           </div>
+           <h3 className="text-white/80 text-xs font-bold uppercase tracking-wider">Anúncios Pendentes</h3>
+           <p className="text-3xl font-bold mt-2">{pendingCount}</p>
+           <p className="text-xs text-white/60 mt-2 group-hover:text-white flex items-center gap-1 transition-colors">
+              Revisar agora <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+           </p>
+         </div>
+      </div>
+
+      {/* Card Denúncias */}
+      <div className="group relative bg-gradient-to-br from-red-500 to-rose-600 p-6 rounded-2xl shadow-xl text-white overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-red-500/25">
+         <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+         <div className="relative">
+           <div className="flex items-center gap-2 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <ShieldAlert size={20} />
+              </div>
+           </div>
+           <h3 className="text-white/80 text-xs font-bold uppercase tracking-wider">Denúncias Abertas</h3>
+           <p className="text-3xl font-bold mt-2">{reportedCount}</p>
+           <p className="text-xs text-white/60 mt-2">Requer atenção</p>
+         </div>
+      </div>
+    </div>
+
+    {/* Seção Central: Gráficos e Status de Anúncios */}
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+       
+       {/* Gráfico Principal Premium */}
+       <div className="xl:col-span-2 bg-white p-6 rounded-2xl shadow-xl shadow-slate-900/5 border border-slate-100 flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+             <div>
+                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <BarChart3 size={20} className="text-orange-500" />
+                  Novos Anúncios (7 Dias)
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">Volume de entrada de anúncios na plataforma</p>
+             </div>
+             <div className="flex items-center gap-2">
+               <span className="w-3 h-3 rounded-full bg-gradient-to-r from-orange-500 to-amber-500"></span>
+               <span className="text-xs text-slate-500 font-medium">Anúncios</span>
+             </div>
+          </div>
+          
+          <div className="flex-1 flex items-end justify-between gap-4 px-4 pb-4 border-b border-slate-100 h-64">
+             {last7Days.map((day, i) => {
+               const height = Math.random() * 80 + 10;
+               return (
+                 <div key={i} className="flex-1 flex flex-col justify-end group cursor-pointer items-center relative">
+                    <div 
+                      className="w-full max-w-[50px] bg-gradient-to-t from-orange-500 to-amber-400 rounded-t-lg transition-all relative overflow-hidden shadow-lg shadow-orange-500/20"
+                      style={{ height: `${height}%` }} 
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs py-1.5 px-3 rounded-lg pointer-events-none transition-all shadow-lg z-10">
+                      <div className="font-bold">{Math.round(height)} ads</div>
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full border-4 border-transparent border-t-slate-800"></div>
+                    </div>
+                    <span className="mt-3 text-xs text-slate-400 font-medium">{day}</span>
+                 </div>
+               );
+             })}
+          </div>
+       </div>
+
+       {/* Status Geral de Anúncios Premium */}
+       <div className="bg-white p-6 rounded-2xl shadow-xl shadow-slate-900/5 border border-slate-100 flex flex-col">
+          <h3 className="text-lg font-bold text-slate-800 mb-1 flex items-center gap-2">
+            <Sparkles size={18} className="text-purple-500" />
+            Status dos Anúncios
+          </h3>
+          <p className="text-xs text-slate-400 mb-6">Visão geral total: <span className="font-bold text-slate-600">{totalAds}</span></p>
+          
+          <div className="space-y-6 flex-1">
+             <div className="space-y-2 p-3 rounded-xl bg-gradient-to-r from-emerald-50/50 to-green-50/30 hover:from-emerald-50 hover:to-green-50 transition-colors">
+                <div className="flex justify-between text-xs font-medium">
+                   <span className="text-emerald-700 flex items-center gap-2 font-bold">
+                     <div className="w-3 h-3 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 shadow-md shadow-emerald-500/30"></div>
+                     Ativos
+                   </span>
+                   <span className="text-slate-600 bg-white px-2 py-0.5 rounded-lg shadow-sm">{activeAdsCount} ({((activeAdsCount/totalAds)*100).toFixed(1)}%)</span>
+                </div>
+                <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                   <div className="h-full bg-gradient-to-r from-emerald-500 to-green-500 rounded-full transition-all duration-700 relative" style={{ width: `${(activeAdsCount/totalAds)*100}%` }}>
+                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                   </div>
+                </div>
+             </div>
+
+             <div className="space-y-2 p-3 rounded-xl bg-gradient-to-r from-orange-50/50 to-amber-50/30 hover:from-orange-50 hover:to-amber-50 transition-colors">
+                <div className="flex justify-between text-xs font-medium">
+                   <span className="text-orange-700 flex items-center gap-2 font-bold">
+                     <div className="w-3 h-3 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 shadow-md shadow-orange-500/30 animate-pulse"></div>
+                     Pendentes
+                   </span>
+                   <span className="text-slate-600 bg-white px-2 py-0.5 rounded-lg shadow-sm">{pendingCount} ({((pendingCount/totalAds)*100).toFixed(1)}%)</span>
+                </div>
+                <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                   <div className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-700" style={{ width: `${(pendingCount/totalAds)*100}%` }}></div>
+                </div>
+             </div>
+
+             <div className="space-y-2 p-3 rounded-xl bg-gradient-to-r from-red-50/50 to-rose-50/30 hover:from-red-50 hover:to-rose-50 transition-colors">
+                <div className="flex justify-between text-xs font-medium">
+                   <span className="text-red-600 flex items-center gap-2 font-bold">
+                     <div className="w-3 h-3 rounded-full bg-gradient-to-br from-red-400 to-rose-500 shadow-md shadow-red-500/30"></div>
+                     Rejeitados
+                   </span>
+                   <span className="text-slate-600 bg-white px-2 py-0.5 rounded-lg shadow-sm">{rejectedAdsCount} ({((rejectedAdsCount/totalAds)*100).toFixed(1)}%)</span>
+                </div>
+                <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                   <div className="h-full bg-gradient-to-r from-red-500 to-rose-500 rounded-full transition-all duration-700" style={{ width: `${(rejectedAdsCount/totalAds)*100}%` }}></div>
+                </div>
+             </div>
+          </div>
+       </div>
+    </div>
+
+    {/* Acesso Rápido Premium */}
+    <div>
+      <h3 className="text-lg font-bold text-slate-800 mb-4 px-1 flex items-center gap-2">
+        <Zap size={18} className="text-orange-500" />
+        Acesso Rápido
+      </h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+         {[
+           { icon: Megaphone, label: "Gerenciar Anúncios", view: "MANAGE_ADS_APPROVED", gradient: "from-blue-500 to-indigo-500", shadow: "shadow-blue-500/20" },
+           { icon: Users, label: "Base de Usuários", view: "Lista de usuários", gradient: "from-indigo-500 to-purple-500", shadow: "shadow-indigo-500/20" },
+           { icon: CreditCard, label: "Financeiro", view: "STATS_REVENUE", gradient: "from-emerald-500 to-green-500", shadow: "shadow-emerald-500/20" },
+           { icon: ShieldCheck, label: "Moderação", view: "MANAGE_ADS_REPORTED", gradient: "from-red-500 to-rose-500", shadow: "shadow-red-500/20" },
+           { icon: Settings, label: "Configurações", view: "Sistema", gradient: "from-slate-600 to-slate-700", shadow: "shadow-slate-500/20" },
+           { icon: Globe, label: "Site Principal", view: "Site Institucional", gradient: "from-purple-500 to-violet-500", shadow: "shadow-purple-500/20" },
+         ].map((item, idx) => (
+           <button 
+             key={idx}
+             onClick={() => onNavigate(item.view)}
+             className="group flex flex-col items-center justify-center p-5 rounded-2xl bg-white border border-slate-200 shadow-lg shadow-slate-900/5 hover:shadow-xl hover:-translate-y-1 transition-all"
+           >
+              <div className={`p-3 rounded-xl mb-3 bg-gradient-to-br ${item.gradient} text-white shadow-lg ${item.shadow} group-hover:scale-110 transition-transform`}>
+                 <item.icon size={22} />
+              </div>
+              <span className="text-xs font-bold text-slate-700 text-center group-hover:text-orange-600 transition-colors">{item.label}</span>
+           </button>
+         ))}
+      </div>
+    </div>
+  </div>
+)};
+
+const PendingAdsView = ({ ads }: { ads: AdminAd[] }) => {
+  const pendingAds = ads.filter((ad) => ad.status === "Em Analise");
+  return (
+    <div className="space-y-8 animate-fade-in">
+      {/* Header Premium */}
+      <div className="relative bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 p-8 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+          <div className="absolute bottom-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
+        </div>
+        <div className="absolute top-4 right-4 w-24 h-24 border border-white/20 rounded-full"></div>
+        <div className="absolute top-8 right-8 w-16 h-16 border border-white/20 rounded-full"></div>
+        
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs font-bold text-white/90 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5">
+                <Clock size={12} className="animate-pulse" />
+                Moderação
+              </span>
+              <span className="text-white/40">/</span>
+              <span className="text-xs font-medium text-white/70">Anúncios</span>
+            </div>
+            <h2 className="text-3xl font-bold text-white tracking-tight">Anúncios Pendentes</h2>
+            <p className="text-white/70 mt-2 flex items-center gap-2">
+              Existem <span className="font-bold text-white bg-white/20 px-2.5 py-0.5 rounded-full">{pendingAds.length} anúncios</span> aguardando sua aprovação.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button className="flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-xl hover:bg-white/20 text-sm font-bold transition-all">
+              <Clock size={16} />
+              <span>Mais recentes</span>
+            </button>
+            <button className="flex items-center gap-2 px-5 py-2.5 bg-white text-orange-600 rounded-xl hover:bg-white/90 text-sm font-bold transition-all shadow-lg shadow-black/10 group">
+              <CheckCircle size={16} />
+              <span>Aprovar Todos</span>
+              <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid de Cards Premium */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
         {pendingAds.map((ad) => (
-          <div key={ad.id} className="bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden group">
+          <div key={ad.id} className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-900/5 hover:shadow-2xl hover:-translate-y-1 transition-all flex flex-col overflow-hidden group">
             
             {/* Topo do Card: Imagem e Badges */}
-            <div className="relative h-32 bg-slate-100 border-b border-slate-100 flex items-center justify-center overflow-hidden">
-               {/* Placeholder para imagem, já que AdminAd ainda não tem campo de imagem */}
-               <div className="flex flex-col items-center text-slate-400 gap-1">
-                  <ImageIcon size={24} />
+            <div className="relative h-36 bg-gradient-to-br from-slate-100 to-slate-50 border-b border-slate-100 flex items-center justify-center overflow-hidden">
+               <div className="flex flex-col items-center text-slate-300 gap-1">
+                  <ImageIcon size={32} />
                   <span className="text-[10px] font-medium">Sem imagem</span>
                 </div>
               
-              {/* Badge de Categoria */}
-              <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider text-slate-700 shadow-sm border border-slate-200/50 flex items-center gap-1">
-                <Tag size={8} className="text-orange-500" />
+              {/* Badge de Categoria Premium */}
+              <div className="absolute top-3 left-3 bg-gradient-to-r from-orange-500 to-amber-500 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider text-white shadow-lg shadow-orange-500/30 flex items-center gap-1.5">
+                <Tag size={10} />
                 {ad.category || "Geral"}
               </div>
 
               {/* Badge de Data */}
-              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[9px] font-medium text-white flex items-center gap-1">
-                <Clock size={8} />
+              <div className="absolute top-3 right-3 bg-slate-800/80 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[10px] font-medium text-white flex items-center gap-1.5 shadow-lg">
+                <Clock size={10} />
                 {new Date(ad.created_at).toLocaleDateString("pt-BR")}
               </div>
+              
+              {/* Decorative corner */}
+              <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-orange-500/10 to-transparent"></div>
             </div>
 
             {/* Corpo do Card */}
-            <div className="p-3 flex-1 flex flex-col">
-              <div className="flex justify-between items-start gap-2 mb-1">
-                <h3 className="font-bold text-slate-800 text-sm leading-snug line-clamp-2" title={ad.title}>
+            <div className="p-4 flex-1 flex flex-col">
+              <div className="flex justify-between items-start gap-2 mb-2">
+                <h3 className="font-bold text-slate-800 text-sm leading-snug line-clamp-2 group-hover:text-orange-600 transition-colors" title={ad.title}>
                   {ad.title}
                 </h3>
               </div>
               
-              <p className="text-sm font-bold text-orange-600 mb-2">R$ --,--</p>
+              <p className="text-base font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-2">R$ --,--</p>
               
-              <p className="text-[10px] text-slate-500 leading-relaxed mb-3 line-clamp-2 flex-1">
+              <p className="text-[11px] text-slate-500 leading-relaxed mb-3 line-clamp-2 flex-1">
                 {ad.description}
               </p>
 
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-3 bg-slate-50 p-1.5 rounded">
-                <MapPin size={10} />
+              <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-3 bg-gradient-to-r from-slate-50 to-slate-100/50 p-2 rounded-lg border border-slate-100">
+                <MapPin size={12} className="text-slate-400" />
                 Local não informado
               </div>
 
-              {/* Info do Vendedor */}
-              <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
-                <Avatar name={ad.user_name} size="sm" />
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[10px] font-bold text-slate-700 truncate">{ad.user_name}</span>
+              {/* Info do Vendedor Premium */}
+              <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+                <div className="relative">
+                  <Avatar name={ad.user_name} size="sm" />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full border-2 border-white shadow-sm"></div>
+                </div>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-[11px] font-bold text-slate-700 truncate">{ad.user_name}</span>
                   <div className="flex items-center gap-1">
-                    <Star size={8} className="text-yellow-400 fill-yellow-400" />
-                    <span className="text-[9px] text-slate-400">4.8</span>
+                    <Star size={10} className="text-yellow-400 fill-yellow-400" />
+                    <span className="text-[10px] text-slate-400 font-medium">4.8</span>
+                    <span className="text-slate-300 text-[10px]">•</span>
+                    <span className="text-[10px] text-slate-400">Verificado</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Rodapé de Ações */}
-            <div className="p-2 bg-slate-50 border-t border-slate-100 grid grid-cols-3 gap-1.5">
-               <button className="flex items-center justify-center gap-1 py-1.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors text-[10px] font-medium shadow-sm">
-                <Eye size={12} />
+            {/* Rodapé de Ações Premium */}
+            <div className="p-3 bg-gradient-to-r from-slate-50 to-slate-100/50 border-t border-slate-100 grid grid-cols-3 gap-2">
+               <button className="flex items-center justify-center gap-1.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 transition-all text-[11px] font-bold shadow-sm">
+                <Eye size={14} />
                 Ver
               </button>
-              <button className="flex items-center justify-center gap-1 py-1.5 rounded bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors text-[10px] font-bold border border-red-100">
-                <XCircle size={12} />
+              <button className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all text-[11px] font-bold shadow-lg shadow-red-500/20">
+                <XCircle size={14} />
                 Rejeitar
               </button>
-              <button className="flex items-center justify-center gap-1 py-1.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition-colors text-[10px] font-bold border border-emerald-100">
-                <CheckCircle size={12} />
+              <button className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:from-emerald-600 hover:to-green-600 transition-all text-[11px] font-bold shadow-lg shadow-emerald-500/20">
+                <CheckCircle size={14} />
                 Aprovar
               </button>
             </div>
@@ -522,14 +1492,33 @@ const PendingAdsView = ({ ads }: { ads: AdminAd[] }) => {
         ))}
       </div>
       
-      {/* Estado Vazio (Caso não tenha anúncios) */}
+      {/* Estado Vazio Premium */}
       {pendingAds.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-slate-200 border-dashed">
-          <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-            <CheckCircle size={32} className="text-emerald-500" />
+        <div className="relative flex flex-col items-center justify-center py-20 bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl border border-emerald-200 overflow-hidden">
+          <div className="absolute inset-0 opacity-30">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-300 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-green-300 rounded-full blur-3xl"></div>
           </div>
-          <h3 className="text-lg font-bold text-slate-800">Tudo limpo por aqui!</h3>
-          <p className="text-slate-500 text-sm">Não há novos anúncios aguardando aprovação no momento.</p>
+          
+          <div className="relative z-10 flex flex-col items-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-green-500 rounded-2xl flex items-center justify-center mb-6 shadow-xl shadow-emerald-500/30 rotate-3">
+              <CheckCircle size={40} className="text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <Sparkles size={20} className="text-emerald-500" />
+              Tudo limpo por aqui!
+            </h3>
+            <p className="text-slate-600 text-sm mt-2 max-w-md text-center">Não há novos anúncios aguardando aprovação no momento. Ótimo trabalho!</p>
+            
+            <div className="flex items-center gap-3 mt-6">
+              <div className="flex -space-x-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-amber-400 border-2 border-white shadow-sm flex items-center justify-center text-white text-xs font-bold">✓</div>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-green-400 border-2 border-white shadow-sm flex items-center justify-center text-white text-xs font-bold">✓</div>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-400 border-2 border-white shadow-sm flex items-center justify-center text-white text-xs font-bold">✓</div>
+              </div>
+              <span className="text-xs text-slate-500 font-medium">Todos os anúncios foram revisados</span>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -550,6 +1539,28 @@ const PlaceholderView = ({ title }: { title: string }) => (
   </div>
 );
 
+const isValidCPF = (cpf: string | null | undefined) => {
+  if (typeof cpf !== "string") return false;
+  const cleanCPF = cpf.replace(/[^\d]+/g, "");
+  if (cleanCPF.length !== 11 || !!cleanCPF.match(/(\d)\1{10}/)) return false;
+  
+  const validateDigit = (t: number) => {
+    let d = 0;
+    let c = 0;
+    for (t; t >= 2; t--) {
+        d += parseInt(cleanCPF.substring(c, c + 1)) * t;
+        c++;
+    }
+    d = (d * 10) % 11;
+    if (d === 10 || d === 11) d = 0;
+    return d;
+  }
+
+  if (validateDigit(10) !== parseInt(cleanCPF.substring(9, 10))) return false;
+  if (validateDigit(11) !== parseInt(cleanCPF.substring(10, 11))) return false;
+  return true;
+};
+
 export default function AdminPage() {
   const [activeView, setActiveView] = useState("Lista de usuários");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -566,6 +1577,53 @@ export default function AdminPage() {
     () => ads.filter((ad) => ad.status === "Em Analise").length,
     [ads]
   );
+
+  const userRows = useMemo(() => users.map((item) => {
+    // Score Calculation
+    let score = 0;
+    if (isValidCPF(item.cpf)) score += 25;
+    if (item.phone) score += 15;
+    if (item.email) score += 5;
+    if (item.profileUrl) score += 10;
+    if (item.category) score += 5;
+    if (item.city && (item.serviceRadius || 0) > 0) score += 10;
+    if (item.serviceType) score += 5;
+    if (item.experience) score += 10;
+    if (item.availability && item.availability.length > 0) score += 5;
+
+    const reliabilityScore = Math.min(100, score);
+
+    // Simulating extra data based on ID for consistency
+    const statuses = ["ACTIVE", "SUSPENDED", "BLOCKED", "BANNED"];
+    const levels = ["Gratuito", "Premium", "Verificado"];
+    
+    // Deterministic pseudo-random
+    const mod = item.id % 10; 
+    const isPremium = mod > 7;
+    const statusIndex = mod === 0 ? 2 : mod === 1 ? 1 : 0; 
+    
+    // Last access date simulation
+    const lastAccess = new Date();
+    lastAccess.setHours(lastAccess.getHours() - (item.id % 48));
+
+    return {
+      ...item,
+      status: statuses[statusIndex] as "ACTIVE" | "SUSPENDED" | "BLOCKED" | "BANNED",
+      accountLevel: levels[item.id % 3],
+      activeAdsCount: item.role === 'provider' ? (item.id % 5) : 0,
+      rating: item.role === 'provider' ? (4 + (item.id % 10) / 10).toFixed(1) : "-",
+      lastAccess: lastAccess.toLocaleString('pt-BR'),
+      reliabilityScore,
+      cpfValid: isValidCPF(item.cpf),
+      contact: item.whatsapp
+        ? `Whats: ${item.whatsapp}`
+        : item.phone
+        ? `Tel: ${item.phone}`
+        : "-",
+      cityLabel: item.city || item.state ? `${item.city ?? ""} - ${item.state ?? ""}` : "-"
+    };
+  }), [users]);
+
   const reportedCount = 0; // Placeholder: conectar com API real quando disponível
   const ticketCount = 0;   // Placeholder: conectar com API real quando disponível
 
@@ -644,16 +1702,6 @@ export default function AdminPage() {
     );
   }
 
-  const userRows = users.map((item) => ({
-    ...item,
-    status: "ACTIVE" as const,
-    contact: item.whatsapp
-      ? `Whats: ${item.whatsapp}`
-      : item.phone
-      ? `Tel: ${item.phone}`
-      : "-",
-    cityLabel: item.city || item.state ? `${item.city ?? ""} ${item.state ?? ""}` : "-"
-  }));
 
   return (
     <div className="min-h-screen bg-[#F1F5F9] font-sans text-slate-800 flex overflow-hidden">
@@ -732,13 +1780,12 @@ export default function AdminPage() {
             isCollapsed={!isExpanded}
             onSubItemClick={setActiveView}
             subItems={[
-              { label: "Dashboard", active: activeView === "Dashboard" },
-              { label: "Anúncios pendentes", count: pendingCount, isDanger: pendingCount > 0, active: activeView === "Anúncios pendentes" },
-              { label: "Ativos / Rejeitados", active: activeView === "Ativos / Rejeitados" },
-              { label: "Novos cadastros", active: activeView === "Novos cadastros" },
-              { label: "Denúncias abertas", count: reportedCount, isDanger: reportedCount > 0, active: activeView === "Denúncias abertas" },
-              { label: "Faturamento", active: activeView === "Faturamento" },
-              { label: "Gráfico de acessos", active: activeView === "Gráfico de acessos" }
+              { label: "Dashboard Geral", value: "DASHBOARD", active: activeView === "DASHBOARD" },
+              { label: "Estatísticas de Anúncios", value: "STATS_ADS_OVERVIEW", count: pendingCount, isDanger: pendingCount > 0, active: activeView === "STATS_ADS_OVERVIEW" },
+              { label: "Novos cadastros", value: "STATS_USERS_NEW", active: activeView === "STATS_USERS_NEW" },
+              { label: "Denúncias abertas", value: "STATS_REPORTS", count: reportedCount, isDanger: reportedCount > 0, active: activeView === "STATS_REPORTS" },
+              { label: "Faturamento", value: "STATS_REVENUE", active: activeView === "STATS_REVENUE" },
+              { label: "Gráfico de acessos", value: "STATS_ACCESS", active: activeView === "STATS_ACCESS" }
             ]}
           />
 
@@ -783,12 +1830,12 @@ export default function AdminPage() {
             isCollapsed={!isExpanded}
             onSubItemClick={setActiveView}
             subItems={[
-              { label: "Anúncios pendentes", count: pendingCount, isDanger: pendingCount > 0, active: activeView === "Anúncios pendentes" },
-              { label: "Anúncios aprovados", active: activeView === "Anúncios aprovados" },
-              { label: "Anúncios recusados", active: activeView === "Anúncios recusados" },
-              { label: "Anúncios expirados", active: activeView === "Anúncios expirados" },
-              { label: "Anúncios denunciados", count: reportedCount, active: activeView === "Anúncios denunciados" },
-              { label: "Destaques / Patrocinados", active: activeView === "Destaques / Patrocinados" }
+              { label: "Anúncios pendentes", value: "MANAGE_ADS_PENDING", count: pendingCount, isDanger: pendingCount > 0, active: activeView === "MANAGE_ADS_PENDING" },
+              { label: "Anúncios aprovados", value: "MANAGE_ADS_APPROVED", active: activeView === "MANAGE_ADS_APPROVED" },
+              { label: "Anúncios recusados", value: "MANAGE_ADS_REJECTED", active: activeView === "MANAGE_ADS_REJECTED" },
+              { label: "Anúncios expirados", value: "MANAGE_ADS_EXPIRED", active: activeView === "MANAGE_ADS_EXPIRED" },
+              { label: "Anúncios denunciados", value: "MANAGE_ADS_REPORTED", count: reportedCount, active: activeView === "MANAGE_ADS_REPORTED" },
+              { label: "Destaques / Patrocinados", value: "MANAGE_ADS_FEATURED", active: activeView === "MANAGE_ADS_FEATURED" }
             ]}
           />
 
@@ -1018,8 +2065,25 @@ export default function AdminPage() {
 
         <div className="flex-1 overflow-auto p-4 lg:p-8 bg-[#F1F5F9]">
           {activeView === "Lista de usuários" && <UsersView userRows={userRows} />}
-          {activeView === "Anúncios pendentes" && <PendingAdsView ads={ads} />}
-          {activeView !== "Lista de usuários" && activeView !== "Anúncios pendentes" && (
+          
+          {activeView === "STATS_ADS_OVERVIEW" ? (
+             <AdsStatsView ads={ads} />
+          ) : activeView === "STATS_USERS_NEW" ? (
+             <UsersStatsView users={users} />
+          ) : (activeView === "DASHBOARD" || activeView.startsWith("STATS_")) ? (
+              <StatsDashboardView 
+                users={users}
+                ads={ads}
+                onNavigate={setActiveView}
+              />
+          ) : null}
+
+          {activeView === "MANAGE_ADS_PENDING" && <PendingAdsView ads={ads} />}
+
+          {activeView !== "Lista de usuários" && 
+           activeView !== "MANAGE_ADS_PENDING" && 
+           !activeView.startsWith("STATS_") && 
+           activeView !== "DASHBOARD" && (
             <PlaceholderView title={activeView} />
           )}
         </div>

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { getAuthCookie, verifyAuthToken } from "@/lib/auth";
 
@@ -20,28 +20,40 @@ async function getProviderUser() {
   }
 }
 
-export async function PUT(request: Request, context: { params: { id: string } }) {
+export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   const payload = await getProviderUser();
   if (!payload) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
   const body = await request.json();
-  const { title, description, category } = body as {
-    title?: string;
-    description?: string;
-    category?: string;
-  };
+  const { 
+    title, description, serviceFunction, 
+    paymentMethods, attendance24h, warranty, 
+    ownEquipment, specializedTeam, photos 
+  } = body;
 
   const { rows } = await pool.query(
     `UPDATE provider_ads
      SET title = COALESCE($1, title),
          description = COALESCE($2, description),
-         category = COALESCE($3, category),
+         service_function = COALESCE($3, service_function),
+         payment_methods = COALESCE($4, payment_methods),
+         attendance_24h = COALESCE($5, attendance_24h),
+         warranty = COALESCE($6, warranty),
+         own_equipment = COALESCE($7, own_equipment),
+         specialized_team = COALESCE($8, specialized_team),
+         photos = COALESCE($9, photos),
          updated_at = NOW()
-     WHERE id = $4 AND user_id = $5
-     RETURNING id, title, description, category, status, created_at`,
-    [title ?? null, description ?? null, category ?? null, context.params.id, payload.sub]
+     WHERE id = $10 AND user_id = $11
+     RETURNING *`,
+    [
+      title, description, serviceFunction, 
+      paymentMethods, attendance24h, warranty, 
+      ownEquipment, specializedTeam, photos, 
+      params.id, payload.sub
+    ]
   );
 
   if (!rows[0]) {
@@ -51,20 +63,17 @@ export async function PUT(request: Request, context: { params: { id: string } })
   return NextResponse.json(rows[0]);
 }
 
-export async function DELETE(_request: Request, context: { params: { id: string } }) {
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+  const params = await context.params;
   const payload = await getProviderUser();
   if (!payload) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
-  const { rowCount } = await pool.query(
+  await pool.query(
     "DELETE FROM provider_ads WHERE id = $1 AND user_id = $2",
-    [context.params.id, payload.sub]
+    [params.id, payload.sub]
   );
 
-  if (!rowCount) {
-    return NextResponse.json({ error: "Anúncio não encontrado." }, { status: 404 });
-  }
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ success: true });
 }
