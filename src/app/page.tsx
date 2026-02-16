@@ -69,6 +69,13 @@ type CurrentUser = {
   role: "client" | "provider" | "admin";
 };
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return { text: "Bom dia" };
+  if (hour >= 12 && hour < 18) return { text: "Boa tarde" };
+  return { text: "Boa noite" };
+};
+
 type Category = {
   id: number;
   name: string;
@@ -181,7 +188,7 @@ export default function Home() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    window.location.href = `/explorar?q=${encodeURIComponent(searchTerm)}`;
+    window.location.href = `/anuncios?q=${encodeURIComponent(searchTerm)}`;
   };
 
   // Carousel navigation
@@ -254,10 +261,6 @@ export default function Home() {
 
             {/* Nav Links */}
             <div className="hidden md:flex items-center gap-6">
-              <Link href="/explorar" className="text-white/90 hover:text-white font-semibold flex items-center gap-2 transition-colors">
-                <Map size={18} />
-                Explorar
-              </Link>
               <Link href="/anuncios" className="text-white/90 hover:text-white font-semibold flex items-center gap-2 transition-colors">
                 <Briefcase size={18} />
                 Anúncios
@@ -288,7 +291,10 @@ export default function Home() {
                     <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center text-orange-500 font-black text-sm">
                       {user.name.charAt(0).toUpperCase()}
                     </div>
-                    <span className="hidden sm:inline">{user.name.split(' ')[0]}</span>
+                    <div className="hidden sm:block text-left">
+                      <span className="block text-xs text-white/70 leading-none">{getGreeting().text}</span>
+                      <span className="block text-sm font-bold leading-tight">{user.name.split(' ')[0]}</span>
+                    </div>
                   </button>
 
                   {isMenuOpen && (
@@ -349,10 +355,6 @@ export default function Home() {
           {/* Mobile Menu */}
           {isMobileMenuOpen && (
             <div className="md:hidden mt-4 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-4 space-y-2">
-              <Link href="/explorar" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white hover:bg-white/10 font-medium">
-                <Map size={20} />
-                Explorar Profissionais
-              </Link>
               <Link href="/anuncios" className="flex items-center gap-3 px-4 py-3 rounded-xl text-white hover:bg-white/10 font-medium">
                 <Briefcase size={20} />
                 Ver Anúncios
@@ -433,14 +435,29 @@ export default function Home() {
             </div>
 
             {/* Título */}
-            <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl text-white font-black mb-4 drop-shadow-lg leading-tight">
-              Conectamos você aos melhores<br/>
-              <span className="text-amber-200">profissionais</span> da sua região
-            </h1>
-            
-            <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto">
-              Compare perfis, analise avaliações reais e solicite orçamentos 100% gratuitos.
-            </p>
+            {user ? (
+              <>
+                <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl text-white font-black mb-4 drop-shadow-lg leading-tight">
+                  Olá, {user.name.split(' ')[0]}!<br/>
+                  <span className="text-amber-200 text-2xl md:text-3xl lg:text-4xl">O que você precisa hoje?</span>
+                </h1>
+                
+                <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto">
+                  Encontre os melhores profissionais da sua região com avaliações reais.
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-3xl md:text-4xl lg:text-5xl xl:text-6xl text-white font-black mb-4 drop-shadow-lg leading-tight">
+                  Conectamos você aos melhores<br/>
+                  <span className="text-amber-200">profissionais</span> da sua região
+                </h1>
+                
+                <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl mx-auto">
+                  Compare perfis, analise avaliações reais e solicite orçamentos 100% gratuitos.
+                </p>
+              </>
+            )}
 
             {/* Badges de destaque */}
             <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
@@ -544,7 +561,7 @@ export default function Home() {
               <p className="text-slate-500">Serviços mais procurados pelos clientes</p>
             </div>
             <Link 
-              href="/explorar" 
+              href="/anuncios" 
               className="group flex items-center gap-2 text-sm font-bold text-orange-600 hover:text-orange-700"
             >
               Ver todas
@@ -563,7 +580,7 @@ export default function Home() {
               {popularCategories.map((category, idx) => (
                 <Link
                   key={category.id}
-                  href={`/explorar?categoria=${encodeURIComponent(category.name)}`}
+                  href={`/anuncios?categoria=${encodeURIComponent(category.name)}`}
                   className="group relative overflow-hidden rounded-2xl bg-white border border-slate-100 p-5 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1 hover:border-orange-200"
                 >
                   <div className={`mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${categoryColors[idx % categoryColors.length]} text-white shadow-lg`}>
@@ -594,25 +611,36 @@ export default function Home() {
               <p className="text-slate-500 ml-5">Serviços disponíveis na plataforma</p>
             </div>
             
-            {/* Carousel controls */}
-            {ads.length > 3 && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => scrollCarousel('left')}
-                  disabled={!canScrollLeft}
-                  className={`p-2.5 rounded-xl border transition-all ${canScrollLeft ? 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100' : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'}`}
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <button
-                  onClick={() => scrollCarousel('right')}
-                  disabled={!canScrollRight}
-                  className={`p-2.5 rounded-xl border transition-all ${canScrollRight ? 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100' : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'}`}
+            <div className="flex items-center gap-4">
+              {/* Ver todos link */}
+              <Link 
+                href="/anuncios" 
+                className="group flex items-center gap-2 text-sm font-bold text-orange-600 hover:text-orange-700"
+              >
+                Ver todos
+                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              </Link>
+
+              {/* Carousel controls */}
+              {ads.length > 3 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => scrollCarousel('left')}
+                    disabled={!canScrollLeft}
+                    className={`p-2.5 rounded-xl border transition-all ${canScrollLeft ? 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100' : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'}`}
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <button
+                    onClick={() => scrollCarousel('right')}
+                    disabled={!canScrollRight}
+                    className={`p-2.5 rounded-xl border transition-all ${canScrollRight ? 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100' : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'}`}
                 >
                   <ChevronRight size={20} />
                 </button>
               </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Carousel */}
@@ -746,89 +774,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* Featured Providers Section */}
-        {featuredProviders.length > 0 && (
-          <div className="mb-16">
-            <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-1">
-                  <div className="h-7 w-1.5 rounded-full bg-gradient-to-b from-emerald-400 to-green-500"></div>
-                  <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Profissionais em Destaque</h2>
-                </div>
-                <p className="text-slate-500 ml-5">Os melhores avaliados da plataforma</p>
-              </div>
-              <Link 
-                href="/explorar" 
-                className="group flex items-center gap-2 text-sm font-bold text-orange-600 hover:text-orange-700"
-              >
-                Ver todos
-                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {featuredProviders.slice(0, 6).map((provider, idx) => (
-                <Link
-                  key={provider.id}
-                  href={`/profissional/${provider.id}`}
-                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white transition-all duration-300 hover:border-orange-200 hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1"
-                >
-                  {/* Header */}
-                  <div className={`relative h-20 bg-gradient-to-br ${categoryColors[idx % categoryColors.length]} overflow-hidden`}>
-                    <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.1\'%3E%3Cpath d=\'M20 20h20v20H20z\'/%3E%3C/g%3E%3C/svg%3E')]"></div>
-                    
-                    {provider.verified && (
-                      <div className="absolute right-3 top-3">
-                        <span className="flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold text-emerald-600 shadow-sm">
-                          <BadgeCheck size={12} /> Verificado
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="-mt-8 flex flex-1 flex-col px-5 pb-5">
-                    {/* Avatar */}
-                    <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-xl border-4 border-white bg-white text-slate-400 shadow-lg">
-                      <User size={28} />
-                    </div>
-
-                    <h3 className="text-lg font-bold text-slate-900 mb-0.5 group-hover:text-orange-600 transition-colors">
-                      {provider.name}
-                    </h3>
-                    <p className="text-sm font-medium text-orange-600 mb-3">{provider.role || provider.category}</p>
-
-                    {/* Rating & Location */}
-                    <div className="flex items-center gap-4 mb-3 text-sm">
-                      <div className="flex items-center gap-1">
-                        <Star size={14} fill="currentColor" className="text-amber-500" />
-                        <span className="font-semibold text-slate-700">{Number(provider.rating ?? 0).toFixed(1)}</span>
-                        <span className="text-slate-400">({provider.reviews ?? 0})</span>
-                      </div>
-                      {provider.location && (
-                        <div className="flex items-center gap-1 text-slate-400">
-                          <MapPin size={12} />
-                          <span className="truncate max-w-[100px]">{provider.location}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <p className="text-sm text-slate-500 line-clamp-2 mb-4 flex-1">
-                      {provider.description || "Profissional qualificado."}
-                    </p>
-
-                    <button 
-                      onClick={(e) => e.preventDefault()}
-                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 py-3 text-sm font-bold text-white hover:shadow-lg transition-all"
-                    >
-                      <MessageCircle size={16} /> Pedir Orçamento
-                    </button>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* How It Works Section */}
         <div id="como-funciona" className="mb-16 scroll-mt-24">
           <div className="text-center mb-12">
@@ -942,7 +887,6 @@ export default function Home() {
               <ul className="space-y-2 text-sm text-slate-500">
                 <li><a href="#como-funciona" className="hover:text-orange-600 transition-colors">Como Funciona</a></li>
                 <li><Link href="/auth" className="hover:text-orange-600 transition-colors">Para Profissionais</Link></li>
-                <li><Link href="/explorar" className="hover:text-orange-600 transition-colors">Explorar</Link></li>
                 <li><Link href="/anuncios" className="hover:text-orange-600 transition-colors">Anúncios</Link></li>
               </ul>
             </div>

@@ -120,11 +120,11 @@ export default function ProfissionalPage() {
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Profissional não encontrado</h1>
           <p className="text-slate-500 mb-6">{error || "O perfil que você está procurando não existe."}</p>
           <Link
-            href="/explorar"
+            href="/anuncios"
             className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-6 py-3 font-bold text-white hover:bg-orange-600 transition-colors"
           >
             <ArrowLeft size={18} />
-            Voltar para Explorar
+            Voltar para Anúncios
           </Link>
         </div>
       </div>
@@ -136,7 +136,7 @@ export default function ProfissionalPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-orange-100/50 bg-white/80 backdrop-blur-xl shadow-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/explorar" className="flex items-center gap-2 text-slate-600 hover:text-orange-600 transition-colors">
+          <Link href="/anuncios" className="flex items-center gap-2 text-slate-600 hover:text-orange-600 transition-colors">
             <ArrowLeft size={20} />
             <span className="font-medium">Voltar</span>
           </Link>
