@@ -14,21 +14,31 @@ Frontend do MVP da plataforma de classificados de serviços. Stack: Next.js (App
 > **Importante:** `.env.local` e `.env` são ignorados pelo git.
 
 ## Banco de dados local (Docker)
-Suba o PostgreSQL com:
 
-- `docker compose up -d`
+Suba o PostgreSQL com:
+```bash
+docker compose up -d
+```
+
+Inicialize o schema do banco (cria tabelas, índices):
+```bash
+npm run db:init
+```
 
 As credenciais usam as variáveis definidas em `.env.local`.
 
 ## Rodar o frontend
-- `npm install`
-- `npm run dev`
+```bash
+npm install
+npm run dev
+```
 
 Acesse: http://localhost:3000
 
 ## Segurança básica aplicada
 - Headers de segurança no Next.js.
-- Variáveis sensíveis fora do controle de versão.
+- Variáveis sensíveis (tokens, senhas) fora do controle de versão.
+- Senhas com hash bcrypt.
 
 ## Próximos passos sugeridos
 - Integrar Supabase (auth, storage, database).

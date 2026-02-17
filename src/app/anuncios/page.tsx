@@ -212,6 +212,12 @@ export default function AnunciosPage() {
   useEffect(() => {
     if (!showMap || !mapContainerRef.current || mapInstanceRef.current || !userLocation) return;
 
+    // Validar token Mapbox
+    if (!mapboxgl.accessToken) {
+      console.error("Token Mapbox não configurado. Adicione NEXT_PUBLIC_MAPBOX_TOKEN ao .env.local");
+      return;
+    }
+
     mapInstanceRef.current = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: "mapbox://styles/mapbox/streets-v12",
