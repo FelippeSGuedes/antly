@@ -11,10 +11,22 @@ async function getProviderUser() {
   }
   try {
     const payload = await verifyAuthToken(token);
-    if (payload.role !== "provider") {
-      return null;
+    const tokenRole = String(payload.role || "").trim().toLowerCase();
+    if (["provider", "prestador", "admin"].includes(tokenRole)) {
+      return payload;
     }
-    return payload;
+
+    const { rows } = await pool.query(
+      "SELECT role FROM users WHERE id = $1",
+      [payload.sub]
+    );
+
+    const dbRole = String(rows[0]?.role || "").trim().toLowerCase();
+    if (["provider", "prestador", "admin"].includes(dbRole)) {
+      return payload;
+    }
+
+    return null;
   } catch {
     return null;
   }

@@ -1365,7 +1365,21 @@ const StatsDashboardView = ({
   </div>
 )};
 
-const PendingAdsView = ({ ads }: { ads: AdminAd[] }) => {
+const PendingAdsView = ({
+  ads,
+  onApprove,
+  onReject,
+  onApproveAll,
+  updatingAdId,
+  isApprovingAll,
+}: {
+  ads: AdminAd[];
+  onApprove: (adId: number) => void;
+  onReject: (adId: number) => void;
+  onApproveAll: () => void;
+  updatingAdId: number | null;
+  isApprovingAll: boolean;
+}) => {
   const pendingAds = ads.filter((ad) => ad.status === "Em Analise");
   return (
     <div className="space-y-8 animate-fade-in">
@@ -1399,9 +1413,13 @@ const PendingAdsView = ({ ads }: { ads: AdminAd[] }) => {
               <Clock size={16} />
               <span>Mais recentes</span>
             </button>
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-white text-orange-600 rounded-xl hover:bg-white/90 text-sm font-bold transition-all shadow-lg shadow-black/10 group">
+            <button
+              onClick={onApproveAll}
+              disabled={isApprovingAll || pendingAds.length === 0}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white text-orange-600 rounded-xl hover:bg-white/90 text-sm font-bold transition-all shadow-lg shadow-black/10 group disabled:opacity-60 disabled:cursor-not-allowed"
+            >
               <CheckCircle size={16} />
-              <span>Aprovar Todos</span>
+              <span>{isApprovingAll ? "Aprovando..." : "Aprovar Todos"}</span>
               <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
@@ -1479,13 +1497,21 @@ const PendingAdsView = ({ ads }: { ads: AdminAd[] }) => {
                 <Eye size={14} />
                 Ver
               </button>
-              <button className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all text-[11px] font-bold shadow-lg shadow-red-500/20">
+              <button
+                onClick={() => onReject(ad.id)}
+                disabled={updatingAdId === ad.id}
+                className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all text-[11px] font-bold shadow-lg shadow-red-500/20 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
                 <XCircle size={14} />
-                Rejeitar
+                {updatingAdId === ad.id ? "..." : "Rejeitar"}
               </button>
-              <button className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:from-emerald-600 hover:to-green-600 transition-all text-[11px] font-bold shadow-lg shadow-emerald-500/20">
+              <button
+                onClick={() => onApprove(ad.id)}
+                disabled={updatingAdId === ad.id}
+                className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:from-emerald-600 hover:to-green-600 transition-all text-[11px] font-bold shadow-lg shadow-emerald-500/20 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
                 <CheckCircle size={14} />
-                Aprovar
+                {updatingAdId === ad.id ? "..." : "Aprovar"}
               </button>
             </div>
           </div>
@@ -1572,6 +1598,8 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [ads, setAds] = useState<AdminAd[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingAdId, setUpdatingAdId] = useState<number | null>(null);
+  const [isApprovingAll, setIsApprovingAll] = useState(false);
 
   const pendingCount = useMemo(
     () => ads.filter((ad) => ad.status === "Em Analise").length,
@@ -1663,6 +1691,61 @@ export default function AdminPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const updateAdStatus = async (adId: number, status: AdminAd["status"]) => {
+    setUpdatingAdId(adId);
+    try {
+      const response = await fetch(`/api/admin/ads/${adId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Falha ao atualizar status do anúncio.");
+      }
+
+      setAds((prev) => prev.map((ad) => (ad.id === adId ? { ...ad, status } : ad)));
+    } catch (error) {
+      console.error("Erro ao atualizar anúncio:", error);
+    } finally {
+      setUpdatingAdId(null);
+    }
+  };
+
+  const approveAllPendingAds = async () => {
+    const pendingIds = ads.filter((ad) => ad.status === "Em Analise").map((ad) => ad.id);
+    if (pendingIds.length === 0) return;
+
+    setIsApprovingAll(true);
+    try {
+      const responses = await Promise.all(
+        pendingIds.map((id) =>
+          fetch(`/api/admin/ads/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "Postado" }),
+          })
+        )
+      );
+
+      const approvedIds = new Set<number>();
+      responses.forEach((response, index) => {
+        if (response.ok) {
+          approvedIds.add(pendingIds[index]);
+        }
+      });
+
+      setAds((prev) =>
+        prev.map((ad) => (approvedIds.has(ad.id) ? { ...ad, status: "Postado" } : ad))
+      );
+    } catch (error) {
+      console.error("Erro ao aprovar anúncios pendentes:", error);
+    } finally {
+      setIsApprovingAll(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -2078,7 +2161,16 @@ export default function AdminPage() {
               />
           ) : null}
 
-          {activeView === "MANAGE_ADS_PENDING" && <PendingAdsView ads={ads} />}
+          {activeView === "MANAGE_ADS_PENDING" && (
+            <PendingAdsView
+              ads={ads}
+              onApprove={(adId) => updateAdStatus(adId, "Postado")}
+              onReject={(adId) => updateAdStatus(adId, "Reprovado")}
+              onApproveAll={approveAllPendingAds}
+              updatingAdId={updatingAdId}
+              isApprovingAll={isApprovingAll}
+            />
+          )}
 
           {activeView !== "Lista de usuários" && 
            activeView !== "MANAGE_ADS_PENDING" && 

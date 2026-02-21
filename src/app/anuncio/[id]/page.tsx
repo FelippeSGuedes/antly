@@ -36,6 +36,7 @@ type Ad = {
   ratings_count: number | null;
   ratings_avg: number | string | null;
   provider_name: string;
+  provider_profile_photo: string | null;
   user_id: number;
   service_type: string | null;
   service_function: string | null;
@@ -48,6 +49,21 @@ type Ad = {
   whatsapp: string | null;
 };
 
+type ProviderBasic = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  city: string | null;
+  state: string | null;
+  role: string;
+  category: string;
+  description: string | null;
+  rating: number | null;
+  reviews_count: number;
+  verified: boolean;
+};
+
 export default function AnuncioPage() {
   const params = useParams();
   const id = params.id as string;
@@ -56,6 +72,9 @@ export default function AnuncioPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
+  const [providerDetails, setProviderDetails] = useState<ProviderBasic | null>(null);
+  const [isProviderLoading, setIsProviderLoading] = useState(false);
 
   useEffect(() => {
     const loadAd = async () => {
@@ -94,6 +113,27 @@ export default function AnuncioPage() {
       window.open(`https://wa.me/55${phone}?text=${message}`, '_blank');
     }
   };
+
+  useEffect(() => {
+    const loadProviderDetails = async () => {
+      if (!isProviderModalOpen || !ad?.user_id) return;
+      setIsProviderLoading(true);
+      try {
+        const response = await fetch(`/api/providers/${ad.user_id}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data?.provider) {
+          setProviderDetails(data.provider);
+        }
+      } catch {
+        // fallback para dados do anúncio
+      } finally {
+        setIsProviderLoading(false);
+      }
+    };
+
+    loadProviderDetails();
+  }, [isProviderModalOpen, ad?.user_id]);
 
   if (isLoading) {
     return (
@@ -322,9 +362,17 @@ export default function AnuncioPage() {
               {/* Provider Info */}
               <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                    {ad.provider_name.charAt(0).toUpperCase()}
-                  </div>
+                  {ad.provider_profile_photo ? (
+                    <img
+                      src={ad.provider_profile_photo}
+                      alt={ad.provider_name}
+                      className="h-16 w-16 rounded-2xl object-cover border border-slate-200 shadow-lg"
+                    />
+                  ) : (
+                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                      {ad.provider_name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div>
                     <h3 className="text-lg font-bold text-slate-900">{ad.provider_name}</h3>
                     <p className="text-sm text-orange-600 font-medium">{ad.category}</p>
@@ -375,13 +423,13 @@ export default function AnuncioPage() {
                     </a>
                   )}
 
-                  <Link
-                    href={`/profissional/${ad.user_id}`}
+                  <button
+                    onClick={() => setIsProviderModalOpen(true)}
                     className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-3.5 text-sm font-bold text-white hover:bg-orange-500 transition-all"
                   >
                     <User size={18} />
-                    Ver Perfil Completo
-                  </Link>
+                    Ver Perfil
+                  </button>
                 </div>
               </div>
 
@@ -410,6 +458,142 @@ export default function AnuncioPage() {
           </div>
         </div>
       </main>
+
+      {isProviderModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setIsProviderModalOpen(false)}
+          />
+
+          <div className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div className="relative p-6 md:p-8 bg-gradient-to-r from-orange-500 to-amber-500 text-white">
+              <button
+                onClick={() => setIsProviderModalOpen(false)}
+                className="absolute top-4 right-4 text-white/80 hover:text-white"
+              >
+                <ChevronRight className="rotate-45" size={22} />
+              </button>
+
+              <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
+                {ad.provider_profile_photo ? (
+                  <img
+                    src={ad.provider_profile_photo}
+                    alt={ad.provider_name}
+                    className="h-20 w-20 rounded-2xl object-cover border-2 border-white/70 shadow-xl"
+                  />
+                ) : (
+                  <div className="h-20 w-20 rounded-2xl bg-white/20 backdrop-blur text-white font-black text-2xl flex items-center justify-center border border-white/40 shadow-xl">
+                    {ad.provider_name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-2xl font-extrabold">{providerDetails?.name || ad.provider_name}</h3>
+                    <BadgeCheck size={18} className="text-emerald-200" />
+                  </div>
+                  <p className="text-white/90 font-medium">
+                    {providerDetails?.role || ad.service_function || ad.service_type || ad.category}
+                  </p>
+                  <p className="text-sm text-white/80 mt-1 flex items-center gap-1">
+                    <MapPin size={14} />
+                    {providerDetails?.city || ad.city ? `${providerDetails?.city || ad.city}, ${providerDetails?.state || ad.state}` : "Atendimento regional"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 md:p-8 space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-center">
+                  <p className="text-xs text-amber-700 font-semibold">Avaliação</p>
+                  <p className="text-lg font-black text-amber-600">{Number(providerDetails?.rating ?? ad.ratings_avg ?? 0).toFixed(1)}</p>
+                </div>
+                <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 text-center">
+                  <p className="text-xs text-blue-700 font-semibold">Avaliações</p>
+                  <p className="text-lg font-black text-blue-600">{providerDetails?.reviews_count ?? ad.ratings_count ?? 0}</p>
+                </div>
+                <div className="rounded-xl bg-purple-50 border border-purple-100 p-3 text-center">
+                  <p className="text-xs text-purple-700 font-semibold">Visualizações</p>
+                  <p className="text-lg font-black text-purple-600">{ad.views || 0}</p>
+                </div>
+                <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-center">
+                  <p className="text-xs text-emerald-700 font-semibold">Status</p>
+                  <p className="text-sm font-black text-emerald-600">Verificado</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-5">
+                <h4 className="font-bold text-slate-900 mb-2">Sobre o prestador</h4>
+                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
+                  {isProviderLoading
+                    ? "Carregando descrição..."
+                    : providerDetails?.description || ad.description || "Profissional com experiência na área, focado em qualidade, pontualidade e bom atendimento."}
+                </p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="rounded-xl bg-slate-50 p-4 border border-slate-200">
+                  <p className="text-xs font-semibold text-slate-500 mb-1">Especialidade</p>
+                  <p className="font-bold text-slate-900">{ad.service_function || providerDetails?.role || ad.category}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4 border border-slate-200">
+                  <p className="text-xs font-semibold text-slate-500 mb-1">Tipo de atendimento</p>
+                  <p className="font-bold text-slate-900">{ad.service_type || "Residencial / Comercial"}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4 border border-slate-200">
+                  <p className="text-xs font-semibold text-slate-500 mb-1">Raio de atendimento</p>
+                  <p className="font-bold text-slate-900">{ad.service_radius ? `${ad.service_radius} km` : "A combinar"}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4 border border-slate-200">
+                  <p className="text-xs font-semibold text-slate-500 mb-1">Garantias</p>
+                  <p className="font-bold text-slate-900">{ad.warranty ? "Com garantia" : "Sem garantia formal"}</p>
+                </div>
+              </div>
+
+              {ad.payment_methods && ad.payment_methods.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 p-5">
+                  <h4 className="font-bold text-slate-900 mb-3">Formas de pagamento</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {ad.payment_methods.map((method, idx) => (
+                      <span key={idx} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-sm font-medium border border-slate-200">
+                        {method}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid md:grid-cols-2 gap-3">
+                {ad.whatsapp && (
+                  <button
+                    onClick={handleWhatsApp}
+                    className="rounded-xl bg-emerald-500 py-3 text-sm font-bold text-white hover:bg-emerald-600"
+                  >
+                    Chamar no WhatsApp
+                  </button>
+                )}
+                {ad.phone ? (
+                  <a
+                    href={`tel:${ad.phone}`}
+                    className="rounded-xl border border-slate-300 bg-white py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 text-center"
+                  >
+                    Ligar agora
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => setIsProviderModalOpen(false)}
+                    className="rounded-xl border border-slate-300 bg-white py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                  >
+                    Fechar
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="mt-16 border-t border-slate-100 bg-white">

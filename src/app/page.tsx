@@ -106,6 +106,7 @@ type Ad = {
   ratings_count: number | null;
   ratings_avg: number | string | null;
   provider_name: string;
+  provider_profile_photo: string | null;
   service_type: string | null;
   warranty: boolean | null;
   attendance_24h: boolean | null;
@@ -712,9 +713,17 @@ export default function Home() {
 
                     {/* Provider info */}
                     <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-100">
-                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white font-bold text-xs">
-                        {ad.provider_name.charAt(0).toUpperCase()}
-                      </div>
+                      {ad.provider_profile_photo ? (
+                        <img
+                          src={ad.provider_profile_photo}
+                          alt={ad.provider_name}
+                          className="h-9 w-9 rounded-full object-cover border border-slate-200"
+                        />
+                      ) : (
+                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white font-bold text-xs">
+                          {ad.provider_name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-900 truncate">{ad.provider_name}</p>
                         {ad.city && ad.state && (

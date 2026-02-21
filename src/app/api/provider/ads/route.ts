@@ -4,6 +4,11 @@ import { getAuthCookie, verifyAuthToken } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
+type GeoPoint = {
+  latitude: number;
+  longitude: number;
+};
+
 const isValidCPF = (cpf: string | null | undefined) => {
   if (typeof cpf !== "string") return false;
   const cleanCPF = cpf.replace(/[^\d]+/g, "");
@@ -33,10 +38,69 @@ async function getProviderUser() {
   }
   try {
     const payload = await verifyAuthToken(token);
-    if (payload.role !== "provider") {
-      return null;
+    const tokenRole = String(payload.role || "").trim().toLowerCase();
+    if (["provider", "prestador", "admin"].includes(tokenRole)) {
+      return payload;
     }
-    return payload;
+
+    const { rows } = await pool.query(
+      "SELECT role FROM users WHERE id = $1",
+      [payload.sub]
+    );
+
+    const dbRole = String(rows[0]?.role || "").trim().toLowerCase();
+    if (["provider", "prestador", "admin"].includes(dbRole)) {
+      return payload;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+const onlyDigits = (value: string | null | undefined) => (value || "").replace(/\D/g, "");
+
+async function getCepData(cep: string): Promise<{ neighborhood?: string; city?: string; state?: string } | null> {
+  const cleanCep = onlyDigits(cep);
+  if (cleanCep.length !== 8) return null;
+
+  try {
+    const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`, { cache: "no-store" });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data?.erro) return null;
+
+    return {
+      neighborhood: data?.bairro || undefined,
+      city: data?.localidade || undefined,
+      state: data?.uf || undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function geocodeApproximateLocation(query: string): Promise<GeoPoint | null> {
+  if (!query.trim()) return null;
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`;
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Antly/1.0 (service marketplace)",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) return null;
+    const data = (await response.json()) as Array<{ lat: string; lon: string }>;
+    if (!data?.length) return null;
+
+    return {
+      latitude: Number(data[0].lat),
+      longitude: Number(data[0].lon),
+    };
   } catch {
     return null;
   }
@@ -70,7 +134,7 @@ export async function POST(request: Request) {
   }
 
   const { rows: profileRows } = await pool.query(
-    `SELECT address, number, category, phone, whatsapp, city, state,
+    `SELECT address, number, zip, category, phone, whatsapp, city, state,
             cpf, service_type, service_radius, issues_invoice, availability, bio
        FROM provider_profiles WHERE user_id = $1`,
     [payload.sub]
@@ -78,6 +142,7 @@ export async function POST(request: Request) {
   const profile = profileRows[0];
   const address = profile?.address;
   const number = profile?.number;
+  const zip = profile?.zip;
   const category = profile?.category;
   const phone = profile?.phone;
   const whatsapp = profile?.whatsapp;
@@ -134,17 +199,43 @@ export async function POST(request: Request) {
 
   const finalDescription = description && description.trim().length > 0 ? description : bio;
 
+  // Garante colunas de geolocalização aproximada (bairro/região)
+  await pool.query(`
+    ALTER TABLE provider_ads
+    ADD COLUMN IF NOT EXISTS neighborhood VARCHAR(120),
+    ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+  `);
+
+  const cepData = await getCepData(zip);
+  const neighborhood = cepData?.neighborhood || null;
+
+  const geoQuery = [
+    cepData?.neighborhood,
+    cepData?.city || city,
+    cepData?.state || state,
+    "Brasil",
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const geoPoint = await geocodeApproximateLocation(geoQuery);
+  const latitude = geoPoint?.latitude ?? null;
+  const longitude = geoPoint?.longitude ?? null;
+
   const { rows } = await pool.query(
     `INSERT INTO provider_ads (
         user_id, title, description, category, status, service_function, service_type,
         city, state, service_radius, payment_methods, attendance_24h, emits_invoice,
-        warranty, own_equipment, specialized_team, availability, photos
+        warranty, own_equipment, specialized_team, availability, photos,
+        neighborhood, latitude, longitude
      )
-     VALUES ($1, $2, $3, $4, 'Em Analise', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+     VALUES ($1, $2, $3, $4, 'Em Analise', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
      RETURNING id, title, description, category, status, created_at,
               service_function, service_type, city, state, service_radius,
               payment_methods, attendance_24h, emits_invoice, warranty,
               own_equipment, specialized_team, availability, photos,
+              neighborhood, latitude, longitude,
               views, ratings_count, ratings_avg`,
     [
       payload.sub,
@@ -163,7 +254,10 @@ export async function POST(request: Request) {
       ownEquipment ?? false,
       specializedTeam ?? false,
       availability,
-      photos ?? []
+      photos ?? [],
+      neighborhood,
+      latitude,
+      longitude,
     ]
   );
 

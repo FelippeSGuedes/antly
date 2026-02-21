@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
@@ -62,6 +63,13 @@ const getCategoryIcon = (name: string) => {
   return categoryIcons[name] || categoryIcons["default"];
 };
 
+const normalizeText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 // Função para calcular distância entre duas coordenadas (fórmula Haversine)
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
   const R = 6371; // Raio da Terra em km
@@ -82,12 +90,16 @@ type Ad = {
   category: string;
   city: string | null;
   state: string | null;
+  neighborhood?: string | null;
   photos: string[] | null;
   views: number | null;
   ratings_count: number | null;
   ratings_avg: number | string | null;
   provider_name: string;
+  provider_profile_photo: string | null;
   service_type: string | null;
+  service_function?: string | null;
+  service_radius?: number | null;
   warranty: boolean | null;
   attendance_24h: boolean | null;
   created_at: string;
@@ -117,13 +129,16 @@ type Category = {
 };
 
 export default function AnunciosPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isDesktop, setIsDesktop] = useState(false);
   const [ads, setAds] = useState<Ad[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [showMap, setShowMap] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -133,20 +148,63 @@ export default function AnunciosPage() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   
   // Filtros avançados
-  const [radiusKm, setRadiusKm] = useState<number>(50);
+  const [radiusKm, setRadiusKm] = useState<number>(100);
   const [minRating, setMinRating] = useState<number>(0);
   const [hasWarranty, setHasWarranty] = useState<boolean>(false);
   const [has24hService, setHas24hService] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<string>("recent");
   const [selectedServiceTypes, setSelectedServiceTypes] = useState<string[]>([]);
+  const [derivedCoords, setDerivedCoords] = useState<Record<number, { latitude: number; longitude: number }>>({});
   
-  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mobileMapRef = useRef<HTMLDivElement>(null);
+  const desktopMapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
-  const limit = 12;
+  const limit = 50;
+
+  const applyFilters = () => {
+    const params = new URLSearchParams();
+    const trimmedSearch = searchTerm.trim();
+
+    if (trimmedSearch) {
+      params.set("q", trimmedSearch);
+    }
+
+    if (selectedCategory) {
+      params.set("categoria", selectedCategory);
+    }
+
+    const queryString = params.toString();
+    router.replace(queryString ? `/anuncios?${queryString}` : "/anuncios");
+    setPage(1);
+  };
+
+  const geocodeApproximateLocation = async (query: string): Promise<{ latitude: number; longitude: number } | null> => {
+    if (!query.trim()) return null;
+
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`;
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "Antly/1.0 (service marketplace)",
+        },
+      });
+      if (!response.ok) return null;
+      const data = (await response.json()) as Array<{ lat: string; lon: string }>;
+      if (!data?.length) return null;
+
+      return {
+        latitude: Number(data[0].lat),
+        longitude: Number(data[0].lon),
+      };
+    } catch {
+      return null;
+    }
+  };
 
   // Obter localização do usuário
   useEffect(() => {
@@ -184,6 +242,15 @@ export default function AnunciosPage() {
     }
   }, []);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const updateViewport = () => setIsDesktop(mediaQuery.matches);
+    updateViewport();
+
+    mediaQuery.addEventListener("change", updateViewport);
+    return () => mediaQuery.removeEventListener("change", updateViewport);
+  }, []);
+
   // Carregar usuário autenticado
   useEffect(() => {
     const loadUser = async () => {
@@ -210,7 +277,16 @@ export default function AnunciosPage() {
 
   // Inicializar mapa
   useEffect(() => {
-    if (!showMap || !mapContainerRef.current || mapInstanceRef.current || !userLocation) return;
+    if (!showMap || !userLocation) return;
+
+    const container = isDesktop ? desktopMapRef.current : mobileMapRef.current;
+    if (!container) return;
+
+    // Se já existe uma instância, destrua antes de recriar
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
 
     // Validar token Mapbox
     if (!mapboxgl.accessToken) {
@@ -219,13 +295,15 @@ export default function AnunciosPage() {
     }
 
     mapInstanceRef.current = new mapboxgl.Map({
-      container: mapContainerRef.current,
+      container,
       style: "mapbox://styles/mapbox/streets-v12",
       center: userLocation,
       zoom: 11,
     });
 
-    mapInstanceRef.current.addControl(new mapboxgl.NavigationControl(), "top-right");
+    if (isDesktop) {
+      mapInstanceRef.current.addControl(new mapboxgl.NavigationControl(), "top-right");
+    }
 
     userMarkerRef.current = new mapboxgl.Marker({ color: "#f97316" })
       .setLngLat(userLocation)
@@ -238,7 +316,7 @@ export default function AnunciosPage() {
         mapInstanceRef.current = null;
       }
     };
-  }, [showMap, userLocation]);
+  }, [showMap, userLocation, isDesktop]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -268,12 +346,46 @@ export default function AnunciosPage() {
     loadData();
   }, [page]);
 
+  useEffect(() => {
+    const q = searchParams.get("q") || "";
+    const categoria = searchParams.get("categoria") || "";
+
+    setSearchTerm(q);
+    setSelectedCategory(categoria);
+    setPage(1);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const fillMissingCoordinates = async () => {
+      const missing = ads.filter(
+        (ad) =>
+          (typeof ad.latitude !== "number" || typeof ad.longitude !== "number") &&
+          !derivedCoords[ad.id]
+      );
+
+      for (const ad of missing) {
+        const query = [ad.neighborhood, ad.city, ad.state, "Brasil"].filter(Boolean).join(", ");
+        const point = await geocodeApproximateLocation(query);
+        if (!point) continue;
+
+        setDerivedCoords((prev) => ({
+          ...prev,
+          [ad.id]: point,
+        }));
+      }
+    };
+
+    if (ads.length > 0) {
+      fillMissingCoordinates();
+    }
+  }, [ads]);
+
   const serviceTypes = ["Residencial", "Comercial", "Industrial", "Emergência", "Manutenção", "Instalação", "Reforma", "Consultoria"];
 
   const clearAllFilters = () => {
     setSearchTerm("");
     setSelectedCategory("");
-    setRadiusKm(50);
+    setRadiusKm(100);
     setMinRating(0);
     setHasWarranty(false);
     setHas24hService(false);
@@ -284,18 +396,27 @@ export default function AnunciosPage() {
   const activeFiltersCount = [
     searchTerm !== "",
     selectedCategory !== "",
-    radiusKm !== 50,
+    radiusKm !== 100,
     minRating > 0,
     hasWarranty,
     has24hService,
     selectedServiceTypes.length > 0
   ].filter(Boolean).length;
 
+  const currentUrlSearch = searchParams.get("q") || "";
+  const currentUrlCategory = searchParams.get("categoria") || "";
+  const hasPendingApply =
+    normalizeText(searchTerm) !== normalizeText(currentUrlSearch) ||
+    selectedCategory !== currentUrlCategory;
+
   const filteredAds = ads.filter(ad => {
-    const matchesSearch = searchTerm === "" || 
-      ad.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ad.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ad.provider_name.toLowerCase().includes(searchTerm.toLowerCase());
+    const normalizedSearch = normalizeText(searchTerm);
+    const matchesSearch = normalizedSearch === "" || 
+      normalizeText(ad.title || "").includes(normalizedSearch) ||
+      normalizeText(ad.description || "").includes(normalizedSearch) ||
+      normalizeText(ad.provider_name || "").includes(normalizedSearch) ||
+      normalizeText(ad.category || "").includes(normalizedSearch) ||
+      normalizeText(ad.service_function || "").includes(normalizedSearch);
     
     const matchesCategory = selectedCategory === "" || ad.category === selectedCategory;
     const matchesRating = minRating === 0 || (ad.ratings_avg && Number(ad.ratings_avg) >= minRating);
@@ -305,14 +426,32 @@ export default function AnunciosPage() {
     
     // Filtro de distância baseado na localização do usuário
     let matchesDistance = true;
-    if (userLocation && ad.latitude && ad.longitude) {
-      const distance = calculateDistance(
-        userLocation[1], // latitude do usuário
-        userLocation[0], // longitude do usuário
-        ad.latitude,
-        ad.longitude
-      );
-      matchesDistance = distance <= radiusKm;
+    if (userLocation) {
+      const fallbackCoords = derivedCoords[ad.id];
+      const lat = typeof ad.latitude === "number" ? ad.latitude : fallbackCoords?.latitude;
+      const lng = typeof ad.longitude === "number" ? ad.longitude : fallbackCoords?.longitude;
+      const hasCoordinates = typeof lat === "number" && typeof lng === "number";
+      if (!hasCoordinates) {
+        // Sem coordenadas = mantém visível (sem penalizar dados antigos)
+        matchesDistance = true;
+      } else {
+        const distance = calculateDistance(
+          userLocation[1],
+          userLocation[0],
+          lat as number,
+          lng as number
+        );
+
+        // O anúncio aparece se:
+        // 1. O usuário está dentro do raio de atendimento do prestador (service_radius)
+        //    OU o prestador não definiu raio (mostra sempre)
+        // 2. E o prestador está dentro do filtro de distância do usuário (radiusKm)
+        const providerRadius = Number(ad.service_radius || 0);
+        const withinProviderRadius = providerRadius > 0 ? distance <= providerRadius : true;
+        const withinClientFilterRadius = distance <= radiusKm;
+
+        matchesDistance = withinProviderRadius && withinClientFilterRadius;
+      }
     }
     
     return matchesSearch && matchesCategory && matchesRating && matchesWarranty && matches24h && matchesServiceType && matchesDistance;
@@ -332,18 +471,25 @@ export default function AnunciosPage() {
     markersRef.current = [];
 
     filteredAds.forEach((ad) => {
-      // Usar coordenadas reais do anúncio se disponíveis, senão gerar aleatoriamente
-      const lat = ad.latitude ?? userLocation[1] + (Math.random() - 0.5) * 0.1;
-      const lng = ad.longitude ?? userLocation[0] + (Math.random() - 0.5) * 0.1;
+      const fallbackCoords = derivedCoords[ad.id];
+      const lat = typeof ad.latitude === "number" ? ad.latitude : fallbackCoords?.latitude;
+      const lng = typeof ad.longitude === "number" ? ad.longitude : fallbackCoords?.longitude;
+
+      if (typeof lat !== "number" || typeof lng !== "number") {
+        return;
+      }
 
       const el = document.createElement("div");
       el.className = "ad-marker";
       el.innerHTML = `
-        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white shadow-lg border-2 border-white cursor-pointer hover:scale-110 transition-transform">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-            <circle cx="12" cy="10" r="3"></circle>
-          </svg>
+        <div class="relative group cursor-pointer">
+          <div class="absolute inset-0 rounded-full bg-orange-400/40 blur-md scale-125 group-hover:scale-150 transition-transform"></div>
+          <div class="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 flex items-center justify-center text-white shadow-[0_8px_24px_rgba(249,115,22,0.45)] border-2 border-white group-hover:scale-110 transition-transform">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 21s-7-4.35-7-11a7 7 0 1 1 14 0c0 6.65-7 11-7 11z"></path>
+              <circle cx="12" cy="10" r="2.5"></circle>
+            </svg>
+          </div>
         </div>
       `;
 
@@ -351,7 +497,7 @@ export default function AnunciosPage() {
         <div class="p-3 min-w-[200px]">
           <p class="font-bold text-slate-900 text-sm mb-1">${ad.title}</p>
           <p class="text-xs text-slate-500 mb-2">${ad.provider_name}</p>
-          ${ad.city ? `<p class="text-xs text-orange-600">📍 ${ad.city}, ${ad.state}</p>` : ''}
+          ${ad.neighborhood ? `<p class="text-xs text-orange-600">📍 ${ad.neighborhood} - ${ad.city}, ${ad.state}</p>` : ad.city ? `<p class="text-xs text-orange-600">📍 ${ad.city}, ${ad.state}</p>` : ''}
           <a href="/anuncio/${ad.id}" class="block mt-2 text-center text-xs font-bold text-white bg-orange-500 rounded-lg py-1.5 hover:bg-orange-600">Ver Anúncio</a>
         </div>
       `);
@@ -370,8 +516,9 @@ export default function AnunciosPage() {
       <div className="min-h-screen bg-[#FFFAF5] text-slate-800 font-sans flex flex-col">
 
       {/* Conteúdo Principal - Layout 3 colunas: Filtros | Anúncios | Mapa */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex flex-col lg:flex-row">
         {/* ESQUERDA - Filtros Bonitos */}
+        {showFilters && (
         <aside className="hidden lg:block w-[360px] bg-gradient-to-b from-white to-orange-50/30 border-r border-orange-100 sticky top-0 h-screen overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {/* Header do Filtro com auth */}
           <div className="p-5 bg-gradient-to-r from-orange-500 to-amber-500">
@@ -450,11 +597,25 @@ export default function AnunciosPage() {
                 <Filter size={20} />
                 Filtros
               </h3>
-              {activeFiltersCount > 0 && (
-                <button onClick={clearAllFilters} className="text-xs text-white/80 hover:text-white font-medium bg-white/20 px-3 py-1 rounded-full">
-                  Limpar ({activeFiltersCount})
+              <div className="flex items-center gap-2">
+                {activeFiltersCount > 0 && (
+                  <button onClick={clearAllFilters} className="text-xs text-white/80 hover:text-white font-medium bg-white/20 px-3 py-1 rounded-full">
+                    Limpar ({activeFiltersCount})
+                  </button>
+                )}
+                <button
+                  onClick={applyFilters}
+                  disabled={!hasPendingApply}
+                  className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-full border transition-all ${
+                    hasPendingApply
+                      ? "bg-white text-orange-700 border-white shadow-sm hover:bg-orange-50"
+                      : "bg-white/15 text-white/85 border-white/35 cursor-not-allowed"
+                  }`}
+                >
+                  <Filter size={14} />
+                  {hasPendingApply ? "Aplicar filtros" : "Aplicado"}
                 </button>
-              )}
+              </div>
             </div>
           </div>
 
@@ -667,9 +828,363 @@ export default function AnunciosPage() {
             </button>
           </div>
         </aside>
+        )}
 
         {/* MEIO - Anúncios */}
         <div className="flex-1 overflow-y-auto bg-[#FFFAF5] scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+
+          {/* ═══════════════ MOBILE: Airbnb-style ═══════════════ */}
+          {!isDesktop && (
+            <>
+              {/* Sticky header: search + filter button */}
+              <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-100 shadow-sm">
+                <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+                  <Link
+                    href="/"
+                    className="shrink-0 w-10 h-10 rounded-full bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 active:scale-95 transition-transform"
+                  >
+                    <ArrowLeft size={17} />
+                  </Link>
+                  <div className="flex-1 relative">
+                    <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar serviço ou profissional"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-full border border-slate-200 bg-slate-50/80 text-sm placeholder:text-slate-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none focus:bg-white transition-all"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setMobileFiltersOpen(true)}
+                    className="shrink-0 w-10 h-10 rounded-full border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 active:scale-95 transition-transform relative"
+                  >
+                    <Filter size={16} />
+                    {activeFiltersCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-orange-500 text-[10px] font-bold text-white flex items-center justify-center shadow-sm">
+                        {activeFiltersCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Category pills horizontal scroll */}
+                <div className="flex gap-2 px-3 pb-3 overflow-x-auto scrollbar-hide">
+                  <button
+                    onClick={() => { setSelectedCategory(""); applyFilters(); }}
+                    className={`shrink-0 px-4 py-2 rounded-full text-xs font-semibold border transition-all ${
+                      selectedCategory === ""
+                        ? "bg-slate-900 text-white border-slate-900"
+                        : "bg-white text-slate-600 border-slate-200"
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  {categories.slice(0, 12).map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(selectedCategory === cat.name ? "" : cat.name)}
+                      className={`shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold border transition-all ${
+                        selectedCategory === cat.name
+                          ? "bg-slate-900 text-white border-slate-900"
+                          : "bg-white text-slate-600 border-slate-200"
+                      }`}
+                    >
+                      {getCategoryIcon(cat.name)}
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Map section - full bleed */}
+              {showMap && (
+                <div className="relative h-[45vh] bg-slate-100">
+                  <div ref={mobileMapRef} className="absolute inset-0" />
+                  {/* Fade overlay at bottom */}
+                  <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#FFFAF5] to-transparent pointer-events-none" />
+                  {/* Info badge */}
+                  <div className="absolute top-3 left-3 z-10">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-full px-3.5 py-2 shadow-lg border border-slate-100 flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                      <span className="text-xs font-bold text-slate-800">{filteredAds.length} na região</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Content sheet scrolling over map */}
+              <div className={`relative z-10 bg-[#FFFAF5] min-h-[55vh] pb-28 ${
+                showMap ? "-mt-5 rounded-t-[26px] shadow-[0_-8px_30px_rgba(0,0,0,0.08)]" : ""
+              }`}>
+                {/* Sheet handle */}
+                {showMap && (
+                  <div className="flex justify-center pt-3 pb-1">
+                    <div className="w-9 h-1.5 rounded-full bg-slate-300/80" />
+                  </div>
+                )}
+
+                {/* Results strip */}
+                <div className="px-4 pt-3 pb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-[15px] font-bold text-slate-900">
+                      {filteredAds.length} profissiona{filteredAds.length === 1 ? "l" : "is"}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">disponíveis na sua região</p>
+                  </div>
+                  <div className="flex bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                    <button
+                      onClick={() => setViewMode("grid")}
+                      className={`p-2 transition-all ${viewMode === "grid" ? "bg-orange-500 text-white" : "text-slate-400"}`}
+                    >
+                      <Grid size={14} />
+                    </button>
+                    <button
+                      onClick={() => setViewMode("list")}
+                      className={`p-2 transition-all ${viewMode === "list" ? "bg-orange-500 text-white" : "text-slate-400"}`}
+                    >
+                      <List size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Cards */}
+                <div className="px-4">
+                  {isLoading ? (
+                    <div className="space-y-4">
+                      {[...Array(4)].map((_, i) => (
+                        <div key={i} className="bg-white rounded-2xl animate-pulse h-28 shadow-sm" />
+                      ))}
+                    </div>
+                  ) : filteredAds.length > 0 ? (
+                    <div className="space-y-3">
+                      {filteredAds.map((ad, idx) => (
+                        <Link
+                          key={ad.id}
+                          href={`/anuncio/${ad.id}`}
+                          className="flex bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm active:scale-[0.98] transition-transform"
+                        >
+                          {/* Thumbnail */}
+                          <div className="relative w-28 shrink-0 bg-gradient-to-br from-orange-50 to-amber-50">
+                            {ad.photos && ad.photos.length > 0 ? (
+                              <img src={ad.photos[0]} alt={ad.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${categoryColors[idx % categoryColors.length]} flex items-center justify-center text-white text-sm shadow-md`}>
+                                  {getCategoryIcon(ad.category)}
+                                </div>
+                              </div>
+                            )}
+                            {ad.warranty && (
+                              <div className="absolute bottom-1.5 left-1.5">
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-500 text-[9px] font-bold text-white">
+                                  <ShieldCheck size={9} /> Garantia
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 p-3 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="text-sm font-bold text-slate-900 line-clamp-1">{ad.title}</h3>
+                              <div className="shrink-0 flex items-center gap-0.5 bg-amber-50 px-1.5 py-0.5 rounded-md">
+                                <Star size={10} fill="currentColor" className="text-amber-500" />
+                                <span className="text-[11px] font-bold text-amber-700">{Number(ad.ratings_avg || 0).toFixed(1)}</span>
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{ad.description || "Serviço profissional"}</p>
+                            <div className="flex items-center gap-2 mt-2">
+                              {ad.provider_profile_photo ? (
+                                <img src={ad.provider_profile_photo} alt="" className="h-5 w-5 rounded-full object-cover border border-slate-200" />
+                              ) : (
+                                <div className="h-5 w-5 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white text-[9px] font-bold">
+                                  {ad.provider_name.charAt(0)}
+                                </div>
+                              )}
+                              <span className="text-[11px] font-medium text-slate-600">{ad.provider_name}</span>
+                              {ad.city && (
+                                <span className="text-[11px] text-slate-400 flex items-center gap-0.5">
+                                  <MapPin size={9} /> {ad.city}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-2">
+                              <span className="px-2 py-0.5 rounded-full bg-orange-50 text-[10px] font-semibold text-orange-700">
+                                {ad.category}
+                              </span>
+                              {ad.attendance_24h && (
+                                <span className="flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-blue-50 text-[10px] font-semibold text-blue-700">
+                                  <Clock size={9} /> 24h
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-16">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-orange-100 flex items-center justify-center">
+                        <Briefcase className="h-8 w-8 text-orange-400" />
+                      </div>
+                      <h3 className="text-base font-bold text-slate-800 mb-1">Nenhum resultado</h3>
+                      <p className="text-sm text-slate-500 mb-6">Tente ajustar os filtros</p>
+                      <button onClick={clearAllFilters} className="px-6 py-2.5 rounded-full bg-orange-500 text-white text-sm font-bold shadow-md">
+                        Limpar filtros
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Floating map/list toggle (Airbnb-style) */}
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+                <button
+                  onClick={() => setShowMap(!showMap)}
+                  className="flex items-center gap-2 px-6 py-3.5 rounded-full bg-slate-900 text-white text-sm font-semibold shadow-2xl shadow-slate-900/40 active:scale-95 transition-transform"
+                >
+                  {showMap ? <List size={16} /> : <Map size={16} />}
+                  {showMap ? "Lista" : "Mapa"}
+                </button>
+              </div>
+
+              {/* Mobile filters bottom sheet */}
+              {mobileFiltersOpen && (
+                <div className="fixed inset-0 z-[60]">
+                  {/* Backdrop */}
+                  <div
+                    className="absolute inset-0 bg-black/40 backdrop-blur-sm mobile-sheet-backdrop"
+                    onClick={() => setMobileFiltersOpen(false)}
+                  />
+                  {/* Sheet */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto mobile-sheet-enter">
+                    {/* Handle */}
+                    <div className="sticky top-0 bg-white rounded-t-3xl z-10 border-b border-slate-100">
+                      <div className="flex justify-center pt-3 pb-1">
+                        <div className="w-9 h-1.5 rounded-full bg-slate-300" />
+                      </div>
+                      <div className="flex items-center justify-between px-5 pb-3">
+                        <h3 className="text-lg font-bold text-slate-900">Filtros</h3>
+                        <button onClick={() => setMobileFiltersOpen(false)} className="text-sm font-semibold text-orange-600">
+                          Fechar
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-5 space-y-6">
+                      {/* Distância */}
+                      <div>
+                        <label className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                          <Navigation size={15} className="text-orange-500" /> Distância
+                        </label>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-2xl font-bold text-orange-600">{radiusKm} km</span>
+                          <MapPin size={18} className="text-slate-400" />
+                        </div>
+                        <input type="range" min="5" max="200" step="5" value={radiusKm} onChange={(e) => setRadiusKm(Number(e.target.value))} className="w-full accent-orange-500" />
+                        <div className="flex justify-between text-[11px] text-slate-400 mt-1"><span>5km</span><span>100km</span><span>200km</span></div>
+                      </div>
+
+                      {/* Avaliação */}
+                      <div>
+                        <label className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                          <Star size={15} className="text-orange-500 fill-orange-500" /> Avaliação mínima
+                        </label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[{ v: 0, l: "Todas" }, { v: 3, l: "3+" }, { v: 4, l: "4+" }, { v: 4.5, l: "4.5+" }].map((r) => (
+                            <button
+                              key={r.v}
+                              onClick={() => setMinRating(r.v)}
+                              className={`py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                                minRating === r.v ? "bg-amber-500 text-white shadow" : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {r.v > 0 && "⭐ "}{r.l}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Tipo de atendimento */}
+                      <div>
+                        <label className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                          <Zap size={15} className="text-orange-500" /> Tipo de atendimento
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {serviceTypes.map((type) => (
+                            <button
+                              key={type}
+                              onClick={() => setSelectedServiceTypes(selectedServiceTypes.includes(type) ? selectedServiceTypes.filter((t) => t !== type) : [...selectedServiceTypes, type])}
+                              className={`px-3 py-2 rounded-full text-xs font-medium transition-all ${
+                                selectedServiceTypes.includes(type) ? "bg-orange-500 text-white" : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {type}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Diferenciais */}
+                      <div>
+                        <label className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                          <ShieldCheck size={15} className="text-orange-500" /> Diferenciais
+                        </label>
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => setHasWarranty(!hasWarranty)}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium ${
+                              hasWarranty ? "bg-emerald-500 text-white" : "bg-slate-50 text-slate-600"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2"><ShieldCheck size={16} /> Garantia</span>
+                            {hasWarranty && <span className="text-xs">✓</span>}
+                          </button>
+                          <button
+                            onClick={() => setHas24hService(!has24hService)}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium ${
+                              has24hService ? "bg-blue-500 text-white" : "bg-slate-50 text-slate-600"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2"><Clock size={16} /> Atendimento 24h</span>
+                            {has24hService && <span className="text-xs">✓</span>}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Ordenar */}
+                      <div>
+                        <label className="text-sm font-bold text-slate-800 mb-3 block">Ordenar por</label>
+                        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm bg-slate-50">
+                          <option value="recent">📅 Mais recentes</option>
+                          <option value="rating">⭐ Melhor avaliação</option>
+                          <option value="views">👁️ Mais vistos</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Bottom actions */}
+                    <div className="sticky bottom-0 bg-white border-t border-slate-100 p-4 flex gap-3">
+                      <button onClick={clearAllFilters} className="flex-1 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700">
+                        Limpar tudo
+                      </button>
+                      <button
+                        onClick={() => { applyFilters(); setMobileFiltersOpen(false); }}
+                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm font-bold shadow-lg"
+                      >
+                        Ver resultados
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ═══════════════ DESKTOP ═══════════════ */}
+          <div className={`${!isDesktop ? "hidden" : ""}`}>
           <div className="p-6">
             {/* Header dos Resultados */}
             <div className="flex items-center justify-between mb-6">
@@ -703,6 +1218,13 @@ export default function AnunciosPage() {
                     <button onClick={() => setSelectedCategory("")} className="ml-1 hover:text-orange-200 transition-colors">×</button>
                   </span>
                 )}
+                <button
+                  onClick={() => setShowFilters((prev) => !prev)}
+                  className="hidden lg:inline-flex items-center gap-2 px-3 py-2.5 bg-white rounded-xl border border-slate-200 text-slate-600 hover:text-orange-600 hover:border-orange-200 transition-all"
+                >
+                  <Filter size={16} />
+                  {showFilters ? "Ocultar menu" : "Mostrar menu"}
+                </button>
                 <div className="flex bg-white rounded-xl border border-slate-200 overflow-hidden">
                   <button
                     onClick={() => setViewMode("grid")}
@@ -788,9 +1310,17 @@ export default function AnunciosPage() {
                       <div className="border-t border-slate-100 pt-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white font-bold text-sm shadow-md">
-                              {ad.provider_name.charAt(0).toUpperCase()}
-                            </div>
+                            {ad.provider_profile_photo ? (
+                              <img
+                                src={ad.provider_profile_photo}
+                                alt={ad.provider_name}
+                                className="h-9 w-9 rounded-xl object-cover border border-slate-200 shadow-md"
+                              />
+                            ) : (
+                              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                {ad.provider_name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
                             <div>
                               <p className="text-sm font-bold text-slate-900">{ad.provider_name}</p>
                               {ad.city && (
@@ -863,12 +1393,13 @@ export default function AnunciosPage() {
               </div>
             )}
           </div>
+          </div>
         </div>
 
         {/* DIREITA - Mapa */}
-        {showMap && (
-          <div className="hidden lg:block w-[35%] sticky top-0 h-screen border-l border-slate-200 relative">
-            <div ref={mapContainerRef} className="w-full h-full" />
+        {isDesktop && showMap && (
+          <div className="w-[35%] sticky top-0 h-screen border-l border-slate-200 relative">
+            <div ref={desktopMapRef} className="w-full h-full" />
             
             {/* Logo Antly no mapa */}
             <div className="absolute bottom-2 right-2 z-20">
@@ -953,7 +1484,7 @@ export default function AnunciosPage() {
         </div>
       </footer>
 
-      {/* Estilos Mapbox */}
+      {/* Estilos Mapbox + Mobile animations */}
       <style jsx global>{`
         .mapboxgl-ctrl-logo, .mapboxgl-ctrl-attrib { display: none !important; }
         .mapboxgl-popup-content { padding: 0 !important; border-radius: 12px !important; box-shadow: 0 10px 40px rgba(0,0,0,0.15) !important; }
@@ -961,6 +1492,22 @@ export default function AnunciosPage() {
         .ad-marker:hover > div { transform: scale(1.1); }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Mobile bottom sheet animations */
+        .mobile-sheet-enter {
+          animation: sheetSlideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+        }
+        .mobile-sheet-backdrop {
+          animation: fadeIn 0.25s ease-out forwards;
+        }
+        @keyframes sheetSlideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
       `}</style>
     </div>
     </>

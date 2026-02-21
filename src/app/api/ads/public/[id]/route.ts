@@ -28,6 +28,9 @@ export async function GET(
         a.service_type,
         a.city,
         a.state,
+        a.neighborhood,
+        a.latitude,
+        a.longitude,
         a.service_radius,
         a.payment_methods,
         a.attendance_24h,
@@ -38,12 +41,13 @@ export async function GET(
         a.ratings_avg,
         u.id AS user_id,
         u.name AS provider_name,
+        COALESCE(pp.profile_url, u.profile_photo) AS provider_profile_photo,
         pp.phone,
         pp.whatsapp
       FROM provider_ads a
       JOIN users u ON u.id = a.user_id
       LEFT JOIN provider_profiles pp ON pp.user_id = u.id
-      WHERE a.id = $1 AND a.status = 'approved'`,
+      WHERE a.id = $1 AND a.status IN ('Postado', 'approved')`,
       [id]
     );
 

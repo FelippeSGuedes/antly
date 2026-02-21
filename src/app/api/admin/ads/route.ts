@@ -25,7 +25,12 @@ export async function GET(request: Request) {
             a.title,
             a.description,
             a.category,
-            a.status,
+            CASE
+              WHEN a.status IN ('approved', 'postado', 'Postado') THEN 'Postado'
+              WHEN a.status IN ('pending', 'em analise', 'Em Analise') THEN 'Em Analise'
+              WHEN a.status IN ('rejected', 'reprovado', 'Reprovado') THEN 'Reprovado'
+              ELSE a.status
+            END AS status,
             a.created_at,
             u.id AS user_id,
             u.name AS user_name,

@@ -20,22 +20,24 @@ export async function GET(
       );
     }
 
-    // Buscar o profissional
+    // Buscar o profissional (schema atual)
     const providerResult = await pool.query(
       `SELECT 
         u.id,
         u.name,
         u.email,
-        u.phone,
-        u.city,
-        u.state,
+        COALESCE(pp.phone, u.phone) as phone,
+        COALESCE(pp.city, u.city) as city,
+        COALESCE(pp.state, u.state) as state,
         u.created_at,
-        pp.category_id,
-        pp.description,
-        pp.latitude,
-        pp.longitude,
-        pp.is_verified as verified,
-        c.name as category,
+        NULL::INTEGER as category_id,
+        pp.bio as description,
+        NULL::DOUBLE PRECISION as latitude,
+        NULL::DOUBLE PRECISION as longitude,
+        FALSE as verified,
+        pp.category as category,
+        pp.profile_url as profile_url,
+        pp.service_type as service_type,
         COALESCE(
           (SELECT AVG(r.rating)::numeric(3,2) 
            FROM reviews r 
@@ -50,8 +52,7 @@ export async function GET(
         ) as reviews_count
       FROM users u
       JOIN provider_profiles pp ON pp.user_id = u.id
-      LEFT JOIN categories c ON c.id = pp.category_id
-      WHERE u.id = $1 AND u.role = 'provider'`,
+      WHERE u.id = $1 AND LOWER(u.role) IN ('provider', 'prestador')`,
       [providerId]
     );
 
@@ -64,19 +65,7 @@ export async function GET(
 
     const provider = providerResult.rows[0];
 
-    // Buscar função/especialidade do profissional
-    const roleResult = await pool.query(
-      `SELECT f.name as role
-       FROM provider_functions pf
-       JOIN functions f ON f.id = pf.function_id
-       WHERE pf.profile_id = (
-         SELECT id FROM provider_profiles WHERE user_id = $1 LIMIT 1
-       )
-       LIMIT 1`,
-      [providerId]
-    );
-
-    provider.role = roleResult.rows[0]?.role || provider.category || "Profissional";
+    provider.role = provider.service_type || provider.category || "Profissional";
 
     // Buscar avaliações
     const reviewsResult = await pool.query(

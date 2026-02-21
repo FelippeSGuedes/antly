@@ -1214,6 +1214,7 @@ export default function PrestadorPage() {
 
     const response = await fetch(url, {
       method,
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form)
     });
@@ -1245,7 +1246,7 @@ export default function PrestadorPage() {
 
   const deleteAd = async (id: number) => {
     if(!confirm("Tem certeza que deseja excluir este anúncio?")) return;
-    await fetch(`/api/provider/ads/${id}`, { method: "DELETE" });
+    await fetch(`/api/provider/ads/${id}`, { method: "DELETE", credentials: "include" });
     await load();
   };
 
