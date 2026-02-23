@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { Shield, User as UserIcon, Briefcase, Star, AlertCircle, CheckCircle, Camera, Upload } from "lucide-react";
+import { calculateProfileCompletion, type ProfileFields } from "@/lib/levels";
 
 type User = {
   id: string;
@@ -93,28 +94,25 @@ export default function PrestadorPerfilPage() {
   const [categories, setCategories] = useState<Array<{ id: number; name: string; group_name: string }>>([]);
   const router = useRouter();
 
-  // Score Calculation
+  // Score Calculation - uses shared levels system
   const reliabilityScore = useMemo(() => {
-    let score = 0;
-    // Security (45%)
-    if (isValidCPF(form.cpf)) score += 25;
-    if (form.phone && form.phone.length >= 10) score += 15; // Simulated verified
-    if (user?.email) score += 5; // Simulated verified
-
-    // Visual (10%)
-    if (previewUrl || form.profileUrl) score += 10;
-
-    // Professional (30%)
-    if (form.category) score += 5;
-    if (form.city && form.serviceRadius > 0) score += 10;
-    if (form.serviceType) score += 5;
-    if (form.experience) score += 10;
-
-    // Quality (10%)
-    if (form.bio && form.bio.length > 50) score += 5;
-    if (form.availability && form.availability.length > 0) score += 5;
-
-    return Math.min(100, score);
+    const fields: ProfileFields = {
+      cpf: form.cpf,
+      phone: form.phone,
+      email: user?.email,
+      profileUrl: previewUrl || form.profileUrl || undefined,
+      category: form.category || undefined,
+      city: form.city || undefined,
+      serviceRadius: form.serviceRadius,
+      serviceType: form.serviceType || undefined,
+      experience: form.experience || undefined,
+      bio: form.bio || undefined,
+      availability: form.availability,
+      whatsapp: form.whatsapp || undefined,
+      address: form.address || undefined,
+      name: form.name || undefined,
+    };
+    return calculateProfileCompletion(fields);
   }, [form, user, previewUrl]);
 
   const load = async () => {

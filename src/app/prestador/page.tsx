@@ -872,10 +872,35 @@ const CreateAdForm = ({
                 onChange={(e) => setForm({...form, title: e.target.value})}
                 type="text" 
                 maxLength={80}
-                className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all shadow-sm"
+                className={`w-full px-4 py-3 rounded-lg border ${form.title.length > 0 && form.title.length < 10 ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : 'border-slate-200 focus:border-orange-500 focus:ring-orange-500/20'} text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all shadow-sm`}
                 placeholder="Ex: Eletricista Residencial e Predial - Atendimento 24h"
               />
-              <p className="mt-2 text-xs text-slate-400">Seja específico. Títulos claros atraem 40% mais cliques.</p>
+              <div className="flex items-center justify-between mt-2">
+                <div>
+                  {form.title.length > 0 && form.title.length < 10 && (
+                    <p className="text-xs text-red-500 font-medium">Mínimo de 10 caracteres ({form.title.length}/10)</p>
+                  )}
+                  {form.title.length === 0 && (
+                    <p className="text-xs text-slate-400">Seja específico. Títulos claros atraem 40% mais cliques.</p>
+                  )}
+                  {form.title.length >= 10 && (
+                    <p className="text-xs text-green-600 font-medium">✓ Título válido ({form.title.length}/80)</p>
+                  )}
+                </div>
+                <span className={`text-xs ${form.title.length >= 10 ? 'text-green-500' : 'text-slate-400'}`}>{form.title.length}/80</span>
+              </div>
+              {form.title.length > 0 && form.title.length < 10 && profile?.category && (
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                  <p className="text-xs font-semibold text-blue-700 mb-1.5">💡 Sugestão de título:</p>
+                  <button
+                    type="button"
+                    onClick={() => setForm({...form, title: `${profile.category} Profissional - Atendimento Residencial e Comercial`})}
+                    className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                  >
+                    {`${profile.category} Profissional - Atendimento Residencial e Comercial`}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1312,16 +1337,6 @@ export default function PrestadorPage() {
           
           {/* Hero do Header */}
           <div className="text-center py-6 sm:py-8 md:py-10 lg:py-12">
-            <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-white/20 backdrop-blur-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-full mb-4 sm:mb-5 md:mb-6">
-              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-              <span className="text-xs sm:text-sm font-bold text-white">Conta PRO</span>
-              <div className="w-px h-3 sm:h-4 bg-white/30"></div>
-              <span className="text-[10px] sm:text-xs text-white/90 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" />
-                Verificado
-              </span>
-            </div>
-            
             <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white mb-2 sm:mb-3 md:mb-4 tracking-tight drop-shadow-lg">
               Painel do Prestador
             </h1>
@@ -1360,7 +1375,7 @@ export default function PrestadorPage() {
 
       {/* Layout Grid Principal */}
       <main className="max-w-6xl mx-auto mt-8 px-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <SidebarProfile user={user} profile={profile} />
+        <SidebarProfile user={user} profile={profile} stats={stats} reviews={reviews} />
         
         <section className="lg:col-span-9">
             {/* Navigation Tabs */}

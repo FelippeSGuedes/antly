@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import mapboxgl from "mapbox-gl";
@@ -30,6 +30,8 @@ import {
   Moon,
   Sunset,
 } from "lucide-react";
+import { formatRatingDisplay, estimatePublicLevel } from "@/lib/levels";
+import LevelBadge from "@/components/LevelBadge";
 
 // Configurar token do Mapbox
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
@@ -105,6 +107,19 @@ type Ad = {
   created_at: string;
   latitude?: number | null;
   longitude?: number | null;
+  // Provider profile fields for level calc
+  user_created_at?: string | null;
+  provider_cpf?: string | null;
+  provider_bio?: string | null;
+  provider_category?: string | null;
+  provider_city?: string | null;
+  provider_service_radius?: number | null;
+  provider_availability?: string[] | null;
+  provider_experience?: string | null;
+  provider_has_cnpj?: boolean | null;
+  provider_service_type?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
 };
 
 type CurrentUser = {
@@ -129,6 +144,14 @@ type Category = {
 };
 
 export default function AnunciosPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>}>
+      <AnunciosContent />
+    </Suspense>
+  );
+}
+
+function AnunciosContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isDesktop, setIsDesktop] = useState(false);
@@ -989,10 +1012,14 @@ export default function AnunciosPage() {
                           <div className="flex-1 p-3 min-w-0">
                             <div className="flex items-start justify-between gap-2">
                               <h3 className="text-sm font-bold text-slate-900 line-clamp-1">{ad.title}</h3>
-                              <div className="shrink-0 flex items-center gap-0.5 bg-amber-50 px-1.5 py-0.5 rounded-md">
-                                <Star size={10} fill="currentColor" className="text-amber-500" />
-                                <span className="text-[11px] font-bold text-amber-700">{Number(ad.ratings_avg || 0).toFixed(1)}</span>
-                              </div>
+                              {(() => { const r = formatRatingDisplay(ad.ratings_avg, ad.ratings_count); return r.isNew ? (
+                                <span className="shrink-0 px-1.5 py-0.5 rounded-md bg-blue-50 text-[11px] font-bold text-blue-600">Novo</span>
+                              ) : (
+                                <div className="shrink-0 flex items-center gap-0.5 bg-amber-50 px-1.5 py-0.5 rounded-md">
+                                  <Star size={10} fill="currentColor" className="text-amber-500" />
+                                  <span className="text-[11px] font-bold text-amber-700">{r.text}</span>
+                                </div>
+                              ); })()}
                             </div>
                             <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{ad.description || "Serviço profissional"}</p>
                             <div className="flex items-center gap-2 mt-2">
@@ -1004,6 +1031,29 @@ export default function AnunciosPage() {
                                 </div>
                               )}
                               <span className="text-[11px] font-medium text-slate-600">{ad.provider_name}</span>
+                              <LevelBadge
+                                levelResult={estimatePublicLevel({
+                                  reviewsCount: ad.ratings_count,
+                                  ratingAverage: ad.ratings_avg,
+                                  createdAt: ad.created_at,
+                                  providerCpf: ad.provider_cpf,
+                                  providerBio: ad.provider_bio,
+                                  providerCategory: ad.provider_category,
+                                  providerCity: ad.provider_city,
+                                  providerServiceRadius: ad.provider_service_radius,
+                                  providerAvailability: ad.provider_availability,
+                                  providerExperience: ad.provider_experience,
+                                  providerHasCnpj: ad.provider_has_cnpj,
+                                  providerServiceType: ad.provider_service_type,
+                                  providerProfilePhoto: ad.provider_profile_photo,
+                                  providerPhone: ad.phone,
+                                  providerWhatsapp: ad.whatsapp,
+                                  providerName: ad.provider_name,
+                                  userCreatedAt: ad.user_created_at,
+                                })}
+                                variant="inline"
+                                size="xs"
+                              />
                               {ad.city && (
                                 <span className="text-[11px] text-slate-400 flex items-center gap-0.5">
                                   <MapPin size={9} /> {ad.city}
@@ -1322,7 +1372,32 @@ export default function AnunciosPage() {
                               </div>
                             )}
                             <div>
-                              <p className="text-sm font-bold text-slate-900">{ad.provider_name}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-bold text-slate-900">{ad.provider_name}</p>
+                                <LevelBadge
+                                  levelResult={estimatePublicLevel({
+                                    reviewsCount: ad.ratings_count,
+                                    ratingAverage: ad.ratings_avg,
+                                    createdAt: ad.created_at,
+                                    providerCpf: ad.provider_cpf,
+                                    providerBio: ad.provider_bio,
+                                    providerCategory: ad.provider_category,
+                                    providerCity: ad.provider_city,
+                                    providerServiceRadius: ad.provider_service_radius,
+                                    providerAvailability: ad.provider_availability,
+                                    providerExperience: ad.provider_experience,
+                                    providerHasCnpj: ad.provider_has_cnpj,
+                                    providerServiceType: ad.provider_service_type,
+                                    providerProfilePhoto: ad.provider_profile_photo,
+                                    providerPhone: ad.phone,
+                                    providerWhatsapp: ad.whatsapp,
+                                    providerName: ad.provider_name,
+                                    userCreatedAt: ad.user_created_at,
+                                  })}
+                                  variant="inline"
+                                  size="xs"
+                                />
+                              </div>
                               {ad.city && (
                                 <p className="text-xs text-slate-400 flex items-center gap-1">
                                   <MapPin size={10} /> {ad.city}, {ad.state}
@@ -1332,10 +1407,16 @@ export default function AnunciosPage() {
                           </div>
 
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1 bg-amber-50 px-2.5 py-1.5 rounded-lg">
-                              <Star size={14} fill="currentColor" className="text-amber-500" />
-                              <span className="text-sm font-black text-amber-700">{Number(ad.ratings_avg || 0).toFixed(1)}</span>
-                            </div>
+                            {(() => { const r = formatRatingDisplay(ad.ratings_avg, ad.ratings_count); return r.isNew ? (
+                              <span className="px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-100 text-sm font-bold text-blue-600 flex items-center gap-1">
+                                <Sparkles size={12} /> Novo
+                              </span>
+                            ) : (
+                              <div className="flex items-center gap-1 bg-amber-50 px-2.5 py-1.5 rounded-lg">
+                                <Star size={14} fill="currentColor" className="text-amber-500" />
+                                <span className="text-sm font-black text-amber-700">{r.text}</span>
+                              </div>
+                            ); })()}
                             <div className="flex items-center gap-1 text-xs text-slate-400">
                               <Eye size={12} />
                               {ad.views || 0}

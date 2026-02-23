@@ -19,8 +19,11 @@ import {
   Heart,
   Share2,
   Mail,
-  ExternalLink
+  ExternalLink,
+  Sparkles,
 } from "lucide-react";
+import { formatRatingDisplay, estimatePublicLevel } from "@/lib/levels";
+import LevelBadge, { ProviderTrustBadge } from "@/components/LevelBadge";
 
 type Provider = {
   id: number;
@@ -39,6 +42,16 @@ type Provider = {
   created_at: string;
   latitude: number | null;
   longitude: number | null;
+  // Provider profile fields for level calc
+  cpf?: string | null;
+  bio?: string | null;
+  experience?: string | null;
+  availability?: string[] | null;
+  whatsapp?: string | null;
+  service_radius?: number | null;
+  has_cnpj?: boolean | null;
+  service_type?: string | null;
+  profile_url?: string | null;
 };
 
 type Review = {
@@ -186,6 +199,35 @@ export default function ProfissionalPage() {
                         </span>
                       )}
                     </div>
+                    {/* Level Badge */}
+                    <div className="mb-2">
+                      <LevelBadge
+                        levelResult={estimatePublicLevel({
+                          reviewsCount: provider.reviews_count,
+                          ratingAverage: provider.rating,
+                          verified: provider.verified,
+                          createdAt: provider.created_at,
+                          providerCpf: provider.cpf,
+                          providerBio: provider.bio || provider.description,
+                          providerCategory: provider.category,
+                          providerCity: provider.city,
+                          providerServiceRadius: provider.service_radius,
+                          providerAvailability: provider.availability,
+                          providerExperience: provider.experience,
+                          providerHasCnpj: provider.has_cnpj,
+                          providerServiceType: provider.service_type,
+                          providerProfilePhoto: provider.profile_url,
+                          providerPhone: provider.phone,
+                          providerWhatsapp: provider.whatsapp,
+                          providerName: provider.name,
+                        })}
+                        variant="badge"
+                        size="sm"
+                        showPoints
+                        animated
+                      />
+                    </div>
+
                     
                     <p className="text-lg font-semibold text-orange-600 mb-3">{provider.role}</p>
                     
@@ -205,13 +247,23 @@ export default function ProfissionalPage() {
 
                   <div className="flex items-center gap-3">
                     <div className="text-center px-4 py-2 rounded-xl bg-amber-50 border border-amber-100">
-                      <div className="flex items-center gap-1 justify-center">
-                        <Star size={18} fill="currentColor" className="text-amber-500" />
-                        <span className="text-xl font-bold text-amber-700">
-                          {provider.rating ? Number(provider.rating).toFixed(1) : "0.0"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-amber-600">{provider.reviews_count} avaliações</p>
+                      {(() => { const r = formatRatingDisplay(provider.rating, provider.reviews_count); return r.isNew ? (
+                        <>
+                          <div className="flex items-center gap-1 justify-center">
+                            <Sparkles size={18} className="text-blue-500" />
+                            <span className="text-xl font-bold text-blue-600">Novo</span>
+                          </div>
+                          <p className="text-xs text-blue-500">Sem avaliações</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1 justify-center">
+                            <Star size={18} fill="currentColor" className="text-amber-500" />
+                            <span className="text-xl font-bold text-amber-700">{r.text}</span>
+                          </div>
+                          <p className="text-xs text-amber-600">{provider.reviews_count} avaliações</p>
+                        </>
+                      ); })()}
                     </div>
                   </div>
                 </div>
@@ -271,6 +323,35 @@ export default function ProfissionalPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Level Trust Card */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-lg">
+              <LevelBadge
+                levelResult={estimatePublicLevel({
+                  reviewsCount: provider.reviews_count,
+                  ratingAverage: provider.rating,
+                  verified: provider.verified,
+                  createdAt: provider.created_at,
+                  providerCpf: provider.cpf,
+                  providerBio: provider.bio || provider.description,
+                  providerCategory: provider.category,
+                  providerCity: provider.city,
+                  providerServiceRadius: provider.service_radius,
+                  providerAvailability: provider.availability,
+                  providerExperience: provider.experience,
+                  providerHasCnpj: provider.has_cnpj,
+                  providerServiceType: provider.service_type,
+                  providerProfilePhoto: provider.profile_url,
+                  providerPhone: provider.phone,
+                  providerWhatsapp: provider.whatsapp,
+                  providerName: provider.name,
+                })}
+                variant="card"
+                showProgress
+                showPoints
+                animated
+              />
+            </div>
+
             {/* Contact Card */}
             <div className="sticky top-24 rounded-2xl border border-slate-100 bg-white p-6 shadow-lg">
               <h3 className="text-lg font-bold text-slate-900 mb-6">Entre em Contato</h3>

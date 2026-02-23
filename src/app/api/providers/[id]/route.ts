@@ -38,6 +38,13 @@ export async function GET(
         pp.category as category,
         pp.profile_url as profile_url,
         pp.service_type as service_type,
+        pp.cpf as cpf,
+        pp.bio as bio,
+        pp.experience as experience,
+        pp.availability as availability,
+        pp.whatsapp as whatsapp,
+        pp.service_radius as service_radius,
+        pp.has_cnpj as has_cnpj,
         COALESCE(
           (SELECT AVG(r.rating)::numeric(3,2) 
            FROM reviews r 
@@ -66,6 +73,7 @@ export async function GET(
     const provider = providerResult.rows[0];
 
     provider.role = provider.service_type || provider.category || "Profissional";
+    provider.verified = !!provider.cpf;
 
     // Buscar avaliações
     const reviewsResult = await pool.query(

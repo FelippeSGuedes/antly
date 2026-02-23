@@ -21,8 +21,11 @@ import {
   Calendar,
   Zap,
   Share2,
-  BadgeCheck
+  BadgeCheck,
+  Sparkles,
 } from "lucide-react";
+import { formatRatingDisplay, estimatePublicLevel } from "@/lib/levels";
+import LevelBadge from "@/components/LevelBadge";
 
 type Ad = {
   id: number;
@@ -47,6 +50,17 @@ type Ad = {
   created_at: string;
   phone: string | null;
   whatsapp: string | null;
+  // Provider profile fields for level calc
+  user_created_at?: string | null;
+  provider_cpf?: string | null;
+  provider_bio?: string | null;
+  provider_category?: string | null;
+  provider_city?: string | null;
+  provider_service_radius?: number | null;
+  provider_availability?: string[] | null;
+  provider_experience?: string | null;
+  provider_has_cnpj?: boolean | null;
+  provider_service_type?: string | null;
 };
 
 type ProviderBasic = {
@@ -289,9 +303,15 @@ export default function AnuncioPage() {
                 </div>
 
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-100">
-                  <Star size={16} fill="currentColor" className="text-amber-500" />
-                  <span className="font-bold text-amber-700">{Number(ad.ratings_avg || 0).toFixed(1)}</span>
-                  <span className="text-amber-600 text-sm">({ad.ratings_count || 0})</span>
+                  {(() => { const r = formatRatingDisplay(ad.ratings_avg, ad.ratings_count); return r.isNew ? (
+                    <span className="text-sm font-bold text-blue-600 flex items-center gap-1"><Sparkles size={14} /> Novo Prestador</span>
+                  ) : (
+                    <>
+                      <Star size={16} fill="currentColor" className="text-amber-500" />
+                      <span className="font-bold text-amber-700">{r.text}</span>
+                      <span className="text-amber-600 text-sm">({ad.ratings_count || 0})</span>
+                    </>
+                  ); })()}
                 </div>
               </div>
 
@@ -383,14 +403,54 @@ export default function AnuncioPage() {
                   </div>
                 </div>
 
+                {/* Nível do Prestador */}
+                <div className="mb-4">
+                  <LevelBadge
+                    levelResult={estimatePublicLevel({
+                      reviewsCount: ad.ratings_count,
+                      ratingAverage: ad.ratings_avg,
+                      verified: true,
+                      createdAt: ad.created_at,
+                      providerCpf: ad.provider_cpf,
+                      providerBio: ad.provider_bio,
+                      providerCategory: ad.provider_category,
+                      providerCity: ad.provider_city,
+                      providerServiceRadius: ad.provider_service_radius,
+                      providerAvailability: ad.provider_availability,
+                      providerExperience: ad.provider_experience,
+                      providerHasCnpj: ad.provider_has_cnpj,
+                      providerServiceType: ad.provider_service_type,
+                      providerProfilePhoto: ad.provider_profile_photo,
+                      providerPhone: ad.phone,
+                      providerWhatsapp: ad.whatsapp,
+                      providerName: ad.provider_name,
+                      userCreatedAt: ad.user_created_at,
+                    })}
+                    variant="badge"
+                    size="sm"
+                    animated
+                  />
+                </div>
+
+                {/* Experience info */}
+                {ad.service_type && (
+                  <div className="flex justify-between text-sm border-t border-slate-100 pt-4 mt-2">
+                    <span className="text-slate-500">Tipo de atendimento</span>
+                    <span className="font-semibold text-slate-700">{ad.service_type}</span>
+                  </div>
+                )}
+
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <div className="bg-slate-50 rounded-xl p-3 text-center">
                     <div className="flex items-center justify-center gap-1 text-amber-500 mb-1">
-                      <Star size={16} fill="currentColor" />
-                      <span className="font-bold text-slate-900">{Number(ad.ratings_avg || 0).toFixed(1)}</span>
+                      {(() => { const r = formatRatingDisplay(ad.ratings_avg, ad.ratings_count); return r.isNew ? (
+                        <span className="text-sm font-bold text-blue-600">Novo</span>
+                      ) : (
+                        <><Star size={16} fill="currentColor" /><span className="font-bold text-slate-900">{r.text}</span></>
+                      ); })()}
                     </div>
-                    <p className="text-xs text-slate-500">{ad.ratings_count || 0} avaliações</p>
+                    <p className="text-xs text-slate-500">{(ad.ratings_count || 0) === 0 ? 'Sem avaliações' : `${ad.ratings_count} avaliações`}</p>
                   </div>
                   <div className="bg-slate-50 rounded-xl p-3 text-center">
                     <div className="flex items-center justify-center gap-1 text-blue-500 mb-1">
@@ -409,7 +469,7 @@ export default function AnuncioPage() {
                       className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/25 hover:bg-emerald-600 transition-all"
                     >
                       <MessageCircle size={18} />
-                      Chamar no WhatsApp
+                      Fazer Orçamento
                     </button>
                   )}
                   
@@ -571,7 +631,7 @@ export default function AnuncioPage() {
                     onClick={handleWhatsApp}
                     className="rounded-xl bg-emerald-500 py-3 text-sm font-bold text-white hover:bg-emerald-600"
                   >
-                    Chamar no WhatsApp
+                    Fazer Orçamento
                   </button>
                 )}
                 {ad.phone ? (
